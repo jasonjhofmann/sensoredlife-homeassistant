@@ -52,7 +52,7 @@ class GatewaySensorDescription(SensorEntityDescription):
 class SpuckSensorDescription(SensorEntityDescription):
     """Describes a SPuck sensor."""
 
-    value_fn: Callable[[Spuck], float | int | None]
+    value_fn: Callable[[Spuck], float | int | datetime | None]
     attrs_fn: Callable[[Spuck], dict[str, Any]] | None = None
     # Whether a None reading should make the entity unavailable (offline probe)
     # rather than just report an empty value.
@@ -129,6 +129,13 @@ SPUCK_SENSORS: tuple[SpuckSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda s: s.battery_level,
+    ),
+    SpuckSensorDescription(
+        key="last_call_in",
+        translation_key="last_call_in",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda s: s.last_callin,
     ),
 )
 
@@ -230,7 +237,7 @@ class SensoredLifeSpuckSensor(SpuckEntity, SensorEntity):
         return True
 
     @property
-    def native_value(self) -> float | int | None:
+    def native_value(self) -> float | int | datetime | None:
         """Return the current value."""
         if (spuck := self.spuck) is None:
             return None

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 — 2026-06-08
+
+- Add a **Last call-in** timestamp sensor to each SPuck, exposing when the probe
+  last actually reported to its gateway. This makes a silent/dead SPuck obvious
+  (and alertable) instead of it echoing a stale-but-plausible reading.
+
 ## 0.4.1 — 2026-06-07
 
 Review pass — correctness, privacy, and docs.
