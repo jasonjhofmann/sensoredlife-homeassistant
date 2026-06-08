@@ -74,6 +74,11 @@ class SensoredLifeCoordinator(DataUpdateCoordinator[dict[str, Gateway]]):
         The /devices feed is the full account roster (offline devices still
         appear), so a missing identifier means the device was genuinely removed.
         """
+        # Never prune on an empty roster — a spurious empty response would
+        # otherwise wipe every device (and detach its history).
+        if not data:
+            return
+
         current: set[str] = set()
         for imei, gateway in data.items():
             current.add(imei)

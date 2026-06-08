@@ -34,7 +34,7 @@ Each MarCELL gateway becomes a Home Assistant **device** with:
 | `sensor` Temperature | °F, with `safe_minimum` / `safe_maximum` / `in_safe_range` attributes |
 | `sensor` Humidity | %, with the same safe-range attributes |
 | `binary_sensor` Power | `plug` — on = mains, off = running on backup battery |
-| `binary_sensor` Online | `connectivity` — off when the last cloud read is stale (>8 h) |
+| `binary_sensor` Online | `connectivity` — off when the device hasn't reported in >9 h |
 | `sensor` Signal strength | diagnostic (disabled by default) |
 | `sensor` Backup battery | gateway internal cell voltage, diagnostic |
 | `sensor` Last read | timestamp of the most recent cloud read, diagnostic |
@@ -47,16 +47,21 @@ as **Unavailable** rather than a bogus reading.
 
 ## Data updates
 
-The integration uses a single authenticated request to the SensoredLife cloud
-that returns every gateway and SPuck at once, polled **every 15 minutes**. This
-reads the cloud **cache** — the MarCELL hardware itself only calls in to the
-cloud every ~1–2 hours, so a value can be up to a couple of hours old (watch the
-**Last read** timestamp and **Online** sensor).
+The integration makes a single authenticated request that returns every gateway
+and SPuck at once, polled **every 15 minutes**. This reads the cloud **cache**.
+
+> **How fresh is the data?** A MarCELL stores readings hourly (every 30 min on
+> Pro) but only **uploads to the cloud every 8 hours (every 4 hours on Pro)**
+> unless someone is *actively viewing* the account in the SensoredLife web app —
+> which this integration does not do. So a value in Home Assistant can be several
+> hours old; the 15-minute poll just keeps HA in step with whatever the device
+> last uploaded. Use the **Last read** timestamp and the **Online** sensor to
+> judge freshness.
 
 The **Request reading** button forces a gateway to call in immediately (the same
-as the website's *Update* button). It then refreshes the data once the cloud
-catches up. Each press spends one of your account's paid **instant-update
-credits** — routine 15-minute polling never does.
+as the website's *Update* button), then refreshes once the cloud catches up.
+Each press spends one of your account's paid **instant-update credits** —
+routine 15-minute polling never does.
 
 ## Use cases
 
@@ -163,9 +168,10 @@ No credentials or files are left behind.
 
 - **Cloud-only.** There is no local API; the integration depends on the
   SensoredLife cloud and your internet connection.
-- **Not real-time.** Values are the cloud cache; the hardware calls in roughly
-  every 1–2 hours. Use **Request reading** for an immediate value (costs a
-  credit).
+- **Not real-time.** Values come from the cloud cache, and a device only uploads
+  every **8 h (4 h on Pro)** when no one is actively viewing the account — so a
+  reading can be several hours old. Use **Request reading** for an immediate
+  value (costs a credit).
 - **Instant-update credits.** The Request-reading button consumes one of the
   account's paid credits per press.
 - **Temperature is reported in °F** by the cloud; Home Assistant converts it to
