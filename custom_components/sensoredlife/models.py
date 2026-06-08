@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from .const import (
@@ -35,19 +35,20 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
-def _parse_ts(raw: Any, tz_offset_hours: Any) -> datetime | None:
-    """Parse 'YYYY-MM-DD HH:MM:SS' in a device's integer UTC offset to aware UTC."""
+def _parse_ts(raw: Any) -> datetime | None:
+    """Parse a 'YYYY-MM-DD HH:MM:SS' cloud timestamp as aware UTC.
+
+    The cloud reports ReportTimestamp / CallinTime in UTC (verified against the
+    site's own "N minutes ago" display); the device's ``Timezone`` field is only
+    a display preference and must NOT be applied here.
+    """
     if not raw or not isinstance(raw, str):
         return None
     try:
         naive = datetime.strptime(raw, "%Y-%m-%d %H:%M:%S")
     except (TypeError, ValueError):
         return None
-    try:
-        tz: timezone = timezone(timedelta(hours=int(tz_offset_hours)))
-    except (TypeError, ValueError):
-        tz = UTC
-    return naive.replace(tzinfo=tz).astimezone(UTC)
+    return naive.replace(tzinfo=UTC)
 
 
 @dataclass(slots=True)
@@ -96,7 +97,7 @@ class Spuck:
             temperature_range=SafeRange(t_lo, t_hi),
             humidity=hum,
             humidity_range=SafeRange(h_lo, h_hi),
-            last_callin=_parse_ts(raw.get("CallinTime"), 0),
+            last_callin=_parse_ts(raw.get("CallinTime")),
         )
 
 
@@ -130,7 +131,6 @@ class Gateway:
     def from_json(cls, raw: Json) -> Gateway:
         imei = str(raw.get("IMEI") or raw.get("DeviceId"))
         last = raw.get("LastRead") or {}
-        tz = raw.get("Timezone", 0)
         t_lo, t_hi = _device_range(raw, "TEMP")
         h_lo, h_hi = _device_range(raw, "HUMIDITY")
         power = _to_float(last.get("Power"))
@@ -150,7 +150,7 @@ class Gateway:
             power_on=None if power is None else power >= 0.5,
             signal_strength=signal,
             battery_voltage=_to_float(raw.get("BatteryVoltage")),
-            last_report=_parse_ts(last.get("ReportTimestamp"), tz),
+            last_report=_parse_ts(last.get("ReportTimestamp")),
         )
         gateway.spucks = [
             Spuck.from_json(imei, sp) for sp in (raw.get("Peripherals") or [])

@@ -15,7 +15,12 @@ from custom_components.sensoredlife.api import (
     SensoredLifeClient,
     SensoredLifeConnectionError,
 )
-from custom_components.sensoredlife.const import BASE_URL, DEVICES_PATH, LOGIN_PATH
+from custom_components.sensoredlife.const import (
+    BASE_URL,
+    DEVICES_PATH,
+    FORCE_UPDATE_PATH,
+    LOGIN_PATH,
+)
 
 ROOT_URL = f"{BASE_URL}/"
 LOGIN_URL = f"{BASE_URL}{LOGIN_PATH}"
@@ -23,6 +28,10 @@ LOGIN_URL = f"{BASE_URL}{LOGIN_PATH}"
 
 def _devices_url(user_id: str | int) -> str:
     return f"{BASE_URL}{DEVICES_PATH.format(user_id=user_id)}"
+
+
+def _force_url(imei: str) -> str:
+    return f"{BASE_URL}{FORCE_UPDATE_PATH.format(imei=imei)}"
 
 
 def _token_body(expires_offset: int = 30 * 86400) -> dict:
@@ -91,6 +100,64 @@ async def test_devices_client_error(
     client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
     with pytest.raises(SensoredLifeConnectionError):
         await client.async_get_gateways()
+
+
+async def test_force_update_success(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A force update logs in (as needed) and POSTs to the device's RPT endpoint."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, json=_token_body())
+    aioclient_mock.post(_force_url("350000000000002"), text="")
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+
+    await client.async_force_update("350000000000002")
+
+    force_calls = [
+        c
+        for c in aioclient_mock.mock_calls
+        if str(c[1]).split("?")[0] == _force_url("350000000000002")
+    ]
+    assert len(force_calls) == 1
+    # The token is echoed in the body the way the web app sends it.
+    assert '"access_token"' in force_calls[0][2]
+
+
+async def test_force_update_http_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A server error on force update maps to a connection error."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, json=_token_body())
+    aioclient_mock.post(_force_url("350000000000002"), status=500)
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+    with pytest.raises(SensoredLifeConnectionError):
+        await client.async_force_update("350000000000002")
+
+
+async def test_force_update_client_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A transport error on force update maps to a connection error."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, json=_token_body())
+    aioclient_mock.post(_force_url("350000000000002"), exc=ClientError())
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+    with pytest.raises(SensoredLifeConnectionError):
+        await client.async_force_update("350000000000002")
+
+
+async def test_force_update_relogin_on_401(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A 401 on force update re-authenticates once, then surfaces if it persists."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, json=_token_body())
+    aioclient_mock.post(_force_url("350000000000002"), status=401)
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+    with pytest.raises(SensoredLifeAuthError):
+        await client.async_force_update("350000000000002")
+    assert sum(1 for c in aioclient_mock.mock_calls if str(c[1]) == LOGIN_URL) == 2
 
 
 async def test_login_invalid_credentials(

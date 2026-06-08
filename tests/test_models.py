@@ -23,8 +23,8 @@ def test_parse_devices(devices_payload) -> None:
     assert wine.signal_strength == 32.0
     assert wine.battery_voltage == 4.09
     assert wine.temperature_range.contains(wine.temperature) is True
-    # -8 offset: 02:10:33 local -> 10:10:33 UTC.
-    assert wine.last_report == datetime(2026, 6, 8, 10, 10, 33, tzinfo=UTC)
+    # ReportTimestamp is UTC; the device Timezone field is not applied.
+    assert wine.last_report == datetime(2026, 6, 8, 2, 10, 33, tzinfo=UTC)
     assert len(wine.spucks) == 2
 
 
