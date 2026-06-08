@@ -1,0 +1,22 @@
+# Secrets / captures — never commit credentials or traffic dumps
+*.har
+*.pcap
+*.pcapng
+*.creds
+*.token
+secrets.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# macOS
+.DS_Store
+*.swp
