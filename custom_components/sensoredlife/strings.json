@@ -1,0 +1,52 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Enter the username and password you use to sign in at sensoredlife.com.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        },
+        "data_description": {
+          "username": "Your SensoredLife account email address.",
+          "password": "Your SensoredLife account password."
+        }
+      },
+      "reauth_confirm": {
+        "description": "The stored password for {username} was rejected. Enter the current password to reconnect.",
+        "data": {
+          "password": "Password"
+        },
+        "data_description": {
+          "password": "Your SensoredLife account password."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to SensoredLife. Check your network and try again.",
+      "invalid_auth": "Invalid username or password."
+    },
+    "abort": {
+      "already_configured": "This SensoredLife account is already configured.",
+      "reauth_successful": "Re-authentication was successful."
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "power": {
+        "name": "Power"
+      }
+    },
+    "sensor": {
+      "signal_strength": {
+        "name": "Signal strength"
+      },
+      "battery_voltage": {
+        "name": "Backup battery"
+      },
+      "last_read": {
+        "name": "Last read"
+      }
+    }
+  }
+}

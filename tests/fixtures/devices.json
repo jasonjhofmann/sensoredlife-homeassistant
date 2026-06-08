@@ -1,0 +1,39 @@
+[
+  {
+    "Name": "Wine Cellar", "IMEI": "350000000000001", "DeviceId": "350000000000001",
+    "SerialNumber": "TESTA1", "Timezone": -8, "BatteryVoltage": "4.09", "FirmwareVersion": "1074",
+    "Location": "Wine Cellar",
+    "LastRead": {"Temperature": "58.80", "Humidity": "31.90", "Power": "1.00", "SignalStrength": "32",
+                 "ReportTimestamp": "2026-06-08 02:10:33", "FormattedLastMessage": "Monday"},
+    "AlarmPoints": [
+      {"PeripheralId": null, "DeviceSensor": {"SensorType": "TEMP"}, "RangeMin": 40, "RangeMax": 85},
+      {"PeripheralId": null, "DeviceSensor": {"SensorType": "HUMIDITY"}, "RangeMin": 10, "RangeMax": 70},
+      {"PeripheralId": null, "DeviceSensor": {"SensorType": "POWER"}, "RangeMin": 0, "RangeMax": 0}
+    ],
+    "Peripherals": [
+      {"Id": "AAAA0001", "Name": "Chest Freezer", "BatteryLevel": 18, "SignalStrength": 71,
+       "CallinTime": "2025-04-05 06:47:31",
+       "AlarmPoints": [
+         {"DeviceSensor": {"SensorType": "SP_TEMP"}, "LastRead": "999.90", "RangeMin": -15, "RangeMax": 0},
+         {"DeviceSensor": {"SensorType": "SP_HUMID"}, "LastRead": "99.90", "RangeMin": 10, "RangeMax": 70}
+       ]},
+      {"Id": "AAAA0002", "Name": "Beverage Fridge", "BatteryLevel": 25, "SignalStrength": 71,
+       "CallinTime": "2024-11-27 03:21:26",
+       "AlarmPoints": [
+         {"DeviceSensor": {"SensorType": "SP_TEMP"}, "LastRead": "59.10", "RangeMin": 53, "RangeMax": 66},
+         {"DeviceSensor": {"SensorType": "SP_HUMID"}, "LastRead": "51.00", "RangeMin": 30, "RangeMax": 70}
+       ]}
+    ]
+  },
+  {
+    "Name": "Warehouse", "IMEI": "350000000000002", "DeviceId": "350000000000002",
+    "SerialNumber": "TESTB2", "Timezone": -5, "BatteryVoltage": "4.16",
+    "LastRead": {"Temperature": "81.30", "Humidity": "0.00", "Power": "1.00", "SignalStrength": "30",
+                 "ReportTimestamp": "2026-06-08 02:10:33"},
+    "AlarmPoints": [
+      {"PeripheralId": null, "DeviceSensor": {"SensorType": "TEMP"}, "RangeMin": 60, "RangeMax": 76},
+      {"PeripheralId": null, "DeviceSensor": {"SensorType": "HUMIDITY"}, "RangeMin": 0, "RangeMax": 40}
+    ],
+    "Peripherals": []
+  }
+]
