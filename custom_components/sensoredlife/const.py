@@ -12,6 +12,9 @@ MANUFACTURER: Final = "SensoredLife"
 BASE_URL: Final = "https://www.sensoredlife.com"
 LOGIN_PATH: Final = "/LoginGateway.php"
 DEVICES_PATH: Final = "/api/users/{user_id}/devices"
+# On-demand "request a fresh reading" — tells the gateway to call in now. This
+# spends one of the account's paid instant-update credits.
+FORCE_UPDATE_PATH: Final = "/api/devices/{imei}/sendtext/RPT"
 
 # The MarCELL units only call in to the cloud every ~1-2 hours; polling the
 # cloud cache more often than that just keeps HA in sync. It never triggers a

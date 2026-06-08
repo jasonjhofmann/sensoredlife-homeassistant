@@ -27,6 +27,7 @@ from aiohttp import ClientError, ClientResponseError
 from .const import (
     BASE_URL,
     DEVICES_PATH,
+    FORCE_UPDATE_PATH,
     LOGIN_PATH,
     TOKEN_REFRESH_BUFFER,
 )
@@ -70,6 +71,8 @@ class SensoredLifeClient:
         self._token: str | None = None
         self._user_id: int | str | None = None
         self._expires: int = 0
+        # Last XSRF token (URL-decoded), needed to echo on state-changing POSTs.
+        self._xsrf: str | None = None
 
     @property
     def _token_fresh(self) -> bool:
@@ -97,6 +100,7 @@ class SensoredLifeClient:
         """Authenticate and cache the access token (raises on bad credentials)."""
         try:
             xsrf = await self._seed_xsrf()
+            self._xsrf = unquote(xsrf) if xsrf else None
             headers = {
                 "User-Agent": _USER_AGENT,
                 "Accept": "application/json, text/plain, */*",
@@ -104,8 +108,8 @@ class SensoredLifeClient:
                 "Origin": BASE_URL,
                 "Referer": f"{BASE_URL}/",
             }
-            if xsrf:
-                headers["X-XSRF-TOKEN"] = unquote(xsrf)
+            if self._xsrf:
+                headers["X-XSRF-TOKEN"] = self._xsrf
             async with self._session.post(
                 f"{BASE_URL}{LOGIN_PATH}",
                 data=json.dumps(
@@ -150,6 +154,46 @@ class SensoredLifeClient:
         if not isinstance(payload, list):
             raise SensoredLifeConnectionError("Unexpected devices response shape")
         return parse_devices(payload)
+
+    async def async_force_update(self, imei: str) -> None:
+        """Ask a gateway to call in now (spends one instant-update credit)."""
+        if not self._token_fresh:
+            await self.async_login()
+        try:
+            await self._send_force_update(imei)
+        except SensoredLifeAuthError:
+            _LOGGER.debug("Token rejected on force-update; re-authenticating once")
+            await self.async_login()
+            await self._send_force_update(imei)
+
+    async def _send_force_update(self, imei: str) -> None:
+        headers = {
+            "User-Agent": _USER_AGENT,
+            "Accept": "application/json, text/plain, */*",
+            "Content-Type": "application/json;charset=UTF-8",
+            "Origin": BASE_URL,
+            "Referer": f"{BASE_URL}/",
+        }
+        if self._xsrf:
+            headers["X-XSRF-TOKEN"] = self._xsrf
+        url = f"{BASE_URL}{FORCE_UPDATE_PATH.format(imei=imei)}"
+        try:
+            async with self._session.post(
+                url,
+                params={"access_token": self._token or ""},
+                data=json.dumps({"params": {"access_token": self._token}}),
+                headers=headers,
+                timeout=REQUEST_TIMEOUT,
+            ) as resp:
+                if resp.status in (401, 403):
+                    raise SensoredLifeAuthError("Access token rejected")
+                resp.raise_for_status()
+        except ClientResponseError as err:
+            raise SensoredLifeConnectionError(
+                f"Force-update HTTP error: {err.status}"
+            ) from err
+        except (ClientError, TimeoutError) as err:
+            raise SensoredLifeConnectionError(f"Force-update failed: {err}") from err
 
     async def _get_devices(self) -> Any:
         path = DEVICES_PATH.format(user_id=self._user_id)

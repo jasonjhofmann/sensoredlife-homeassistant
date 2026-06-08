@@ -24,6 +24,12 @@ Each MarCELL gateway becomes a Home Assistant **device** with:
 | `sensor` Signal strength | diagnostic |
 | `sensor` Backup battery | gateway internal cell voltage, diagnostic |
 | `sensor` Last read | timestamp of the most recent cloud read, diagnostic |
+| `button` Request reading | on-demand "call in now" (the website's **Update** button) — see note below |
+
+> **Request reading** triggers an immediate cellular reading from the gateway,
+> the same as the website's *Update* button. Each press spends one of your
+> account's paid **instant-update credits**, so it's a manual action — the
+> normal 15-minute polling never uses credits.
 
 Each wireless **SPuck** becomes a child device (linked to its gateway) with
 Temperature, Humidity, and Battery (%) sensors. A SPuck that has dropped offline

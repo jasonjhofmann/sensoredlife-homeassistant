@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock
 
+import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -80,6 +82,40 @@ async def test_offline_spuck_unavailable(
     # Beverage Fridge has real readings (humidity is unit-agnostic).
     assert hass.states.get("sensor.beverage_fridge_temperature").state != STATE_UNAVAILABLE
     assert hass.states.get("sensor.beverage_fridge_humidity").state == "51.0"
+
+
+async def test_request_reading_button(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """Pressing the button calls force-update for that gateway, then refreshes."""
+    await _setup(hass, mock_config_entry)
+    button = hass.states.get("button.warehouse_request_reading")
+    assert button is not None
+
+    await hass.services.async_call(
+        "button",
+        "press",
+        {"entity_id": "button.warehouse_request_reading"},
+        blocking=True,
+    )
+    mock_client.async_force_update.assert_awaited_once_with("350000000000002")
+
+
+async def test_request_reading_button_error(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """A failed force-update surfaces as a HomeAssistantError to the user."""
+    from custom_components.sensoredlife.api import SensoredLifeConnectionError
+
+    await _setup(hass, mock_config_entry)
+    mock_client.async_force_update = AsyncMock(side_effect=SensoredLifeConnectionError)
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.warehouse_request_reading"},
+            blocking=True,
+        )
 
 
 async def test_setup_auth_failure_triggers_reauth(

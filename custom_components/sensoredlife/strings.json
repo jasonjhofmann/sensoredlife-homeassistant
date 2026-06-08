@@ -37,6 +37,11 @@
         "name": "Power"
       }
     },
+    "button": {
+      "request_reading": {
+        "name": "Request reading"
+      }
+    },
     "sensor": {
       "signal_strength": {
         "name": "Signal strength"
