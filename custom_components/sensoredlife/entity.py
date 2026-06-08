@@ -2,12 +2,49 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
+
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, MANUFACTURER
-from .coordinator import SensoredLifeCoordinator
+from .coordinator import SensoredLifeConfigEntry, SensoredLifeCoordinator
 from .models import Gateway, Spuck
+
+# (unique_id, factory) pairs for every entity a platform wants given the data.
+type EntitySpec = tuple[str, Callable[[], Entity]]
+
+
+@callback
+def add_entities_for_devices(
+    entry: SensoredLifeConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+    build: Callable[[SensoredLifeCoordinator], Iterable[EntitySpec]],
+) -> None:
+    """Add a platform's entities now and as new gateways/SPucks appear.
+
+    ``build`` yields (unique_id, factory) for every entity the platform wants
+    for the current coordinator data. Entities are created once per unique_id;
+    the listener picks up devices added to the account after setup
+    (dynamic-devices). Removal of vanished devices is handled by the
+    coordinator (stale-devices).
+    """
+    coordinator = entry.runtime_data
+    known: set[str] = set()
+
+    @callback
+    def _process() -> None:
+        specs = list(build(coordinator))
+        new = [factory() for uid, factory in specs if uid not in known]
+        known.update(uid for uid, _ in specs)
+        if new:
+            async_add_entities(new)
+
+    _process()
+    entry.async_on_unload(coordinator.async_add_listener(_process))
 
 
 class GatewayEntity(CoordinatorEntity[SensoredLifeCoordinator]):

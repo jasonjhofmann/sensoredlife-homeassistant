@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from functools import partial
 from typing import Any
 
 from homeassistant.components.sensor import (
@@ -23,7 +24,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import SensoredLifeConfigEntry, SensoredLifeCoordinator
-from .entity import GatewayEntity, SpuckEntity
+from .entity import EntitySpec, GatewayEntity, SpuckEntity, add_entities_for_devices
 from .models import Gateway, SafeRange, Spuck
 
 # All data comes from one coordinator refresh; no per-entity I/O.
@@ -80,6 +81,7 @@ GATEWAY_SENSORS: tuple[GatewaySensorDescription, ...] = (
         translation_key="signal_strength",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         icon="mdi:signal",
         value_fn=lambda g: g.signal_strength,
     ),
@@ -131,25 +133,34 @@ SPUCK_SENSORS: tuple[SpuckSensorDescription, ...] = (
 )
 
 
+def _build(coordinator: SensoredLifeCoordinator) -> Iterable[EntitySpec]:
+    for imei, gateway in coordinator.data.items():
+        for desc in GATEWAY_SENSORS:
+            yield (
+                f"{imei}_{desc.key}",
+                partial(SensoredLifeGatewaySensor, coordinator, imei, desc),
+            )
+        for spuck in gateway.spucks:
+            for spuck_desc in SPUCK_SENSORS:
+                yield (
+                    f"{spuck.spuck_id}_{spuck_desc.key}",
+                    partial(
+                        SensoredLifeSpuckSensor,
+                        coordinator,
+                        imei,
+                        spuck.spuck_id,
+                        spuck_desc,
+                    ),
+                )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: SensoredLifeConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up SensoredLife sensors from a config entry."""
-    coordinator = entry.runtime_data
-    entities: list[SensorEntity] = []
-    for imei, gateway in coordinator.data.items():
-        entities.extend(
-            SensoredLifeGatewaySensor(coordinator, imei, desc)
-            for desc in GATEWAY_SENSORS
-        )
-        for spuck in gateway.spucks:
-            entities.extend(
-                SensoredLifeSpuckSensor(coordinator, imei, spuck.spuck_id, desc)
-                for desc in SPUCK_SENSORS
-            )
-    async_add_entities(entities)
+    add_entities_for_devices(entry, async_add_entities, _build)
 
 
 class SensoredLifeGatewaySensor(GatewayEntity, SensorEntity):

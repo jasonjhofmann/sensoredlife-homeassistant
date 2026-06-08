@@ -94,3 +94,34 @@ class SensoredLifeConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={CONF_USERNAME: reauth_entry.data[CONF_USERNAME]},
             errors=errors,
         )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Let the user update the account credentials in place."""
+        errors: dict[str, str] = {}
+        reconfigure_entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            username = user_input[CONF_USERNAME]
+            await self.async_set_unique_id(username.lower())
+            # Reconfigure stays on the same account; switching accounts would
+            # orphan the existing devices, so block it.
+            self._abort_if_unique_id_mismatch(reason="account_mismatch")
+
+            error = await self._validate(username, user_input[CONF_PASSWORD])
+            if error:
+                errors["base"] = error
+            else:
+                return self.async_update_reload_and_abort(
+                    reconfigure_entry, data_updates=user_input
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(
+                STEP_USER_SCHEMA,
+                {CONF_USERNAME: reconfigure_entry.data[CONF_USERNAME]},
+            ),
+            errors=errors,
+        )

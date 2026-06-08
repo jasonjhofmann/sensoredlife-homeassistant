@@ -123,3 +123,37 @@ async def test_reauth_flow_invalid_auth(
     )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
+
+
+async def test_reconfigure_flow(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """Reconfigure updates the stored credentials for the same account."""
+    mock_config_entry.add_to_hass(hass)
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    with patch("custom_components.sensoredlife.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_USERNAME: USERNAME, CONF_PASSWORD: "new-pass"},
+        )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert mock_config_entry.data[CONF_PASSWORD] == "new-pass"
+
+
+async def test_reconfigure_account_mismatch(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """Reconfiguring to a different account is blocked."""
+    mock_config_entry.add_to_hass(hass)
+    result = await mock_config_entry.start_reconfigure_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_USERNAME: "someone-else@example.com", CONF_PASSWORD: "x"},
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "account_mismatch"

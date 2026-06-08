@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
+from functools import partial
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -15,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .coordinator import SensoredLifeConfigEntry, SensoredLifeCoordinator
-from .entity import GatewayEntity
+from .entity import EntitySpec, GatewayEntity, add_entities_for_devices
 from .models import Gateway
 
 PARALLEL_UPDATES = 0
@@ -44,18 +45,22 @@ GATEWAY_BINARY_SENSORS: tuple[GatewayBinaryDescription, ...] = (
 )
 
 
+def _build(coordinator: SensoredLifeCoordinator) -> Iterable[EntitySpec]:
+    for imei in coordinator.data:
+        for desc in GATEWAY_BINARY_SENSORS:
+            yield (
+                f"{imei}_{desc.key}",
+                partial(SensoredLifeBinarySensor, coordinator, imei, desc),
+            )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: SensoredLifeConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up SensoredLife binary sensors from a config entry."""
-    coordinator = entry.runtime_data
-    async_add_entities(
-        SensoredLifeBinarySensor(coordinator, imei, desc)
-        for imei in coordinator.data
-        for desc in GATEWAY_BINARY_SENSORS
-    )
+    add_entities_for_devices(entry, async_add_entities, _build)
 
 
 class SensoredLifeBinarySensor(GatewayEntity, BinarySensorEntity):
