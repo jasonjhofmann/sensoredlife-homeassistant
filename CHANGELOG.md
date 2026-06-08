@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0 — 2026-06-07
+
+Reach the **Platinum** quality scale.
+
+- **Dynamic devices** — gateways and SPucks added to the account after setup now
+  appear automatically, no reload needed.
+- **Stale devices** — gateways/SPucks removed from the account are dropped from
+  the device registry.
+- **Reconfigure flow** — change the account credentials in place via the
+  integration's ⋮ → Reconfigure (in addition to the existing reauth flow).
+- **Translated exceptions** — the Request-reading button failure is now a
+  translatable message.
+- Signal-strength diagnostic sensor is disabled by default.
+- Expanded documentation (supported devices, data updates, use cases, automation
+  examples, known limitations).
+
 ## 0.3.0 — 2026-06-07
 
 - Bundle brand artwork in `custom_components/sensoredlife/brand/` (icon + MarCELL

@@ -48,3 +48,47 @@ rules:
   parallel-updates: done
   reauthentication-flow: done
   test-coverage: done
+
+  # --- Gold ---------------------------------------------------------------
+  devices: done
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: Devices are bound to a cloud account; there is nothing to discover
+      on the local network.
+  discovery-update-info:
+    status: exempt
+    comment: No network discovery (cloud account); nothing to update from it.
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices: done
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations: done
+  icon-translations:
+    status: exempt
+    comment: Entities use static/device-class icons; no state-dependent icons.
+  reconfiguration-flow: done
+  repair-issues:
+    status: exempt
+    comment: The only user-actionable failure is bad credentials, handled by the
+      reauthentication flow.
+  stale-devices: done
+
+  # --- Platinum -----------------------------------------------------------
+  async-dependency:
+    status: done
+    comment: The API client is fully async (aiohttp); no sync dependencies.
+  inject-websession:
+    status: done
+    comment: The client takes an injected aiohttp ClientSession.
+  strict-typing:
+    status: done
+    comment: No external runtime dependency; the integration passes mypy --strict.

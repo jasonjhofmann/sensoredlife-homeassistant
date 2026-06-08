@@ -118,6 +118,75 @@ async def test_request_reading_button_error(
         )
 
 
+async def test_dynamic_devices(
+    hass: HomeAssistant,
+    mock_client,
+    mock_config_entry: MockConfigEntry,
+    devices_payload,
+) -> None:
+    """A gateway added to the account after setup appears without a reload."""
+    from custom_components.sensoredlife.models import parse_devices
+
+    await _setup(hass, mock_config_entry)
+    assert hass.states.get("sensor.new_site_temperature") is None
+
+    extra = [
+        *devices_payload,
+        {
+            "Name": "New Site",
+            "IMEI": "999000111",
+            "DeviceId": "999000111",
+            "SerialNumber": "NEW123",
+            "BatteryVoltage": "4.10",
+            "LastRead": {
+                "Temperature": "70.0",
+                "Humidity": "40.0",
+                "Power": "1.00",
+                "SignalStrength": "25",
+                "ReportTimestamp": "2026-06-08 03:00:00",
+            },
+            "AlarmPoints": [
+                {
+                    "PeripheralId": None,
+                    "DeviceSensor": {"SensorType": "TEMP"},
+                    "RangeMin": 40,
+                    "RangeMax": 85,
+                },
+            ],
+            "Peripherals": [],
+        },
+    ]
+    mock_client.async_get_gateways = AsyncMock(return_value=parse_devices(extra))
+    await mock_config_entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.new_site_temperature") is not None
+    assert hass.states.get("button.new_site_request_reading") is not None
+
+
+async def test_stale_devices(
+    hass: HomeAssistant,
+    mock_client,
+    mock_config_entry: MockConfigEntry,
+    devices_payload,
+) -> None:
+    """A gateway removed from the account is dropped from the device registry."""
+    from custom_components.sensoredlife.models import parse_devices
+
+    await _setup(hass, mock_config_entry)
+    registry = dr.async_get(hass)
+    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+
+    reduced = [d for d in devices_payload if d["IMEI"] != "350000000000002"]
+    mock_client.async_get_gateways = AsyncMock(return_value=parse_devices(reduced))
+    await mock_config_entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")}) is None
+    # A surviving gateway stays.
+    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000001")})
+
+
 async def test_setup_auth_failure_triggers_reauth(
     hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
 ) -> None:

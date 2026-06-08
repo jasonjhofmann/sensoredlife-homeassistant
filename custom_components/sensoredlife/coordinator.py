@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -57,9 +58,33 @@ class SensoredLifeCoordinator(DataUpdateCoordinator[dict[str, Gateway]]):
     async def _async_update_data(self) -> dict[str, Gateway]:
         """Fetch the latest readings for every gateway."""
         try:
-            return await self.client.async_get_gateways()
+            data = await self.client.async_get_gateways()
         except SensoredLifeAuthError as err:
             # Surfaced to HA → starts the reauthentication flow.
             raise ConfigEntryAuthFailed(str(err)) from err
         except SensoredLifeConnectionError as err:
             raise UpdateFailed(str(err)) from err
+        self._async_remove_stale_devices(data)
+        return data
+
+    @callback
+    def _async_remove_stale_devices(self, data: dict[str, Gateway]) -> None:
+        """Drop devices (gateways/SPucks) no longer present in the account.
+
+        The /devices feed is the full account roster (offline devices still
+        appear), so a missing identifier means the device was genuinely removed.
+        """
+        current: set[str] = set()
+        for imei, gateway in data.items():
+            current.add(imei)
+            current.update(spuck.spuck_id for spuck in gateway.spucks)
+
+        device_registry = dr.async_get(self.hass)
+        for device in dr.async_entries_for_config_entry(
+            device_registry, self.config_entry.entry_id
+        ):
+            ids = {ident for domain, ident in device.identifiers if domain == DOMAIN}
+            if ids and ids.isdisjoint(current):
+                device_registry.async_update_device(
+                    device.id, remove_config_entry_id=self.config_entry.entry_id
+                )
