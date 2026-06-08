@@ -45,9 +45,11 @@ Each MarCELL gateway becomes a Home Assistant **device** with:
 | `button` Request reading | on-demand "call in now" (the website's **Update** button) |
 
 Each wireless **SPuck** becomes a child device (linked to its gateway) with
-**Temperature**, **Humidity**, and **Battery (%)** sensors. A SPuck that has
-dropped offline (the cloud returns its `999.9 °F` / `99.9 %` sentinels) reports
-as **Unavailable** rather than a bogus reading.
+**Temperature**, **Humidity**, **Battery (%)**, and a **Last call-in** timestamp
+(when the probe last actually reported to its gateway — so a SPuck that has gone
+silent is obvious instead of echoing a stale value). A SPuck that has dropped
+offline (the cloud returns its `999.9 °F` / `99.9 %` sentinels) reports as
+**Unavailable** rather than a bogus reading.
 
 ## Data updates
 

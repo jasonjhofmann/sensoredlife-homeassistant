@@ -80,13 +80,33 @@ async def test_offline_spuck_unavailable(
     """A SPuck returning the sentinel reports unavailable, not a bogus value."""
     await _setup(hass, mock_config_entry)
     # Chest Freezer reports 999.9 / 99.9 sentinels -> unavailable.
-    assert hass.states.get("sensor.chest_freezer_temperature").state == STATE_UNAVAILABLE
+    assert (
+        hass.states.get("sensor.chest_freezer_temperature").state == STATE_UNAVAILABLE
+    )
     assert hass.states.get("sensor.chest_freezer_humidity").state == STATE_UNAVAILABLE
     # Its battery is still a real reading.
     assert hass.states.get("sensor.chest_freezer_battery").state == "18"
     # Beverage Fridge has real readings (humidity is unit-agnostic).
-    assert hass.states.get("sensor.beverage_fridge_temperature").state != STATE_UNAVAILABLE
+    assert (
+        hass.states.get("sensor.beverage_fridge_temperature").state != STATE_UNAVAILABLE
+    )
     assert hass.states.get("sensor.beverage_fridge_humidity").state == "51.0"
+
+
+async def test_spuck_last_call_in(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """Each SPuck exposes its last call-in as a timestamp sensor."""
+    await _setup(hass, mock_config_entry)
+    # CallinTime is parsed as UTC (no offset applied).
+    assert (
+        hass.states.get("sensor.chest_freezer_last_call_in").state
+        == "2025-04-05T06:47:31+00:00"
+    )
+    assert (
+        hass.states.get("sensor.beverage_fridge_last_call_in").state
+        == "2024-11-27T03:21:26+00:00"
+    )
 
 
 async def test_request_reading_button(
