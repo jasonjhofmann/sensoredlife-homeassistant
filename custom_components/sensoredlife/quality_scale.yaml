@@ -5,10 +5,11 @@ rules:
     comment: The integration registers no service actions.
   appropriate-polling: done
   brands:
-    status: todo
+    status: done
     comment: >-
-      Submit MarCELL/SensoredLife icon + logo to home-assistant/brands.
-      Tracked separately; not shippable inside this repo.
+      Icon + logo (light/dark) bundled in custom_components/sensoredlife/brand/.
+      Home Assistant 2026.3+ serves these via the local brands proxy;
+      home-assistant/brands no longer accepts custom-integration icons.
   common-modules: done
   config-flow-test-coverage: done
   config-flow: done
