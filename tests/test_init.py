@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -10,13 +11,17 @@ from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.sensoredlife.api import (
     SensoredLifeAuthError,
     SensoredLifeConnectionError,
 )
-from custom_components.sensoredlife.const import DOMAIN
+from custom_components.sensoredlife.const import DOMAIN, FORCE_UPDATE_SETTLE
 
 
 async def _setup(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -99,6 +104,54 @@ async def test_request_reading_button(
         blocking=True,
     )
     mock_client.async_force_update.assert_awaited_once_with("350000000000002")
+
+
+async def test_request_reading_delayed_refresh(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """A press schedules a refresh a few seconds later (after the gateway calls in)."""
+    await _setup(hass, mock_config_entry)
+    before = mock_client.async_get_gateways.call_count
+
+    # Press twice: the second press cancels the first pending refresh.
+    for _ in range(2):
+        await hass.services.async_call(
+            "button",
+            "press",
+            {"entity_id": "button.warehouse_request_reading"},
+            blocking=True,
+        )
+    # No refresh yet — it's scheduled for later.
+    assert mock_client.async_get_gateways.call_count == before
+
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + FORCE_UPDATE_SETTLE + timedelta(seconds=5)
+    )
+    await hass.async_block_till_done()
+    assert mock_client.async_get_gateways.call_count > before
+
+
+async def test_pending_refresh_canceled_on_unload(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """Unloading cancels a button's pending post-press refresh."""
+    await _setup(hass, mock_config_entry)
+    await hass.services.async_call(
+        "button",
+        "press",
+        {"entity_id": "button.warehouse_request_reading"},
+        blocking=True,
+    )
+    before = mock_client.async_get_gateways.call_count
+
+    assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
+    await hass.async_block_till_done()
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + FORCE_UPDATE_SETTLE + timedelta(seconds=5)
+    )
+    await hass.async_block_till_done()
+    # The canceled refresh never fired.
+    assert mock_client.async_get_gateways.call_count == before
 
 
 async def test_request_reading_button_error(

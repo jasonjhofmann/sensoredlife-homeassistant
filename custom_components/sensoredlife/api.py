@@ -96,26 +96,30 @@ class SensoredLifeClient:
                 return cookie.value
         return None
 
+    def _post_headers(self) -> dict[str, str]:
+        """Browser-shaped headers for a state-changing POST, with the XSRF echo."""
+        headers = {
+            "User-Agent": _USER_AGENT,
+            "Accept": "application/json, text/plain, */*",
+            "Content-Type": "application/json;charset=UTF-8",
+            "Origin": BASE_URL,
+            "Referer": f"{BASE_URL}/",
+        }
+        if self._xsrf:
+            headers["X-XSRF-TOKEN"] = self._xsrf
+        return headers
+
     async def async_login(self) -> None:
         """Authenticate and cache the access token (raises on bad credentials)."""
         try:
             xsrf = await self._seed_xsrf()
             self._xsrf = unquote(xsrf) if xsrf else None
-            headers = {
-                "User-Agent": _USER_AGENT,
-                "Accept": "application/json, text/plain, */*",
-                "Content-Type": "application/json;charset=UTF-8",
-                "Origin": BASE_URL,
-                "Referer": f"{BASE_URL}/",
-            }
-            if self._xsrf:
-                headers["X-XSRF-TOKEN"] = self._xsrf
             async with self._session.post(
                 f"{BASE_URL}{LOGIN_PATH}",
                 data=json.dumps(
                     {"username": self._username, "password": self._password}
                 ),
-                headers=headers,
+                headers=self._post_headers(),
                 timeout=REQUEST_TIMEOUT,
             ) as resp:
                 if resp.status in (401, 403):
@@ -132,7 +136,7 @@ class SensoredLifeClient:
         token = body.get("AccessToken") if isinstance(body, dict) else None
         user_id = body.get("Id") if isinstance(body, dict) else None
         if not token or user_id is None:
-            # A 200 with no token is how the gateway signals bad credentials.
+            # A 200 with no token is how the login endpoint signals bad creds.
             raise SensoredLifeAuthError("Login response did not contain a token")
         self._token = token
         self._user_id = user_id
@@ -167,22 +171,13 @@ class SensoredLifeClient:
             await self._send_force_update(imei)
 
     async def _send_force_update(self, imei: str) -> None:
-        headers = {
-            "User-Agent": _USER_AGENT,
-            "Accept": "application/json, text/plain, */*",
-            "Content-Type": "application/json;charset=UTF-8",
-            "Origin": BASE_URL,
-            "Referer": f"{BASE_URL}/",
-        }
-        if self._xsrf:
-            headers["X-XSRF-TOKEN"] = self._xsrf
         url = f"{BASE_URL}{FORCE_UPDATE_PATH.format(imei=imei)}"
         try:
             async with self._session.post(
                 url,
                 params={"access_token": self._token or ""},
                 data=json.dumps({"params": {"access_token": self._token}}),
-                headers=headers,
+                headers=self._post_headers(),
                 timeout=REQUEST_TIMEOUT,
             ) as resp:
                 if resp.status in (401, 403):

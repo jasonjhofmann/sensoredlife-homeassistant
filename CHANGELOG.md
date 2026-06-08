@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.1 — 2026-06-07
+
+Review pass — correctness, privacy, and docs.
+
+- Docs: corrected the cloud upload cadence — devices upload every **8 h (4 h on
+  Pro)** when no one is actively viewing, not "every 1–2 hours."
+- The **Online** sensor threshold is raised to 9 h so a healthy non-Pro gateway
+  (8 h uploads) no longer false-flags as offline.
+- The **Request reading** button now re-polls ~20 s after the press (the gateway
+  needs a few seconds to call in), so the fresh reading appears without waiting
+  for the next scheduled poll.
+- Diagnostics: device IMEIs are now redacted (they previously leaked as map keys
+  and on SPucks).
+- Robustness: never prune all devices on a spurious empty cloud response.
+
 ## 0.4.0 — 2026-06-07
 
 Reach the **Platinum** quality scale.

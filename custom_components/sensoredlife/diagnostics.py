@@ -11,7 +11,14 @@ from homeassistant.core import HomeAssistant
 from .const import CONF_PASSWORD, CONF_USERNAME
 from .coordinator import SensoredLifeConfigEntry
 
-TO_REDACT = {CONF_USERNAME, CONF_PASSWORD, "serial_number", "imei", "spuck_id"}
+TO_REDACT = {
+    CONF_USERNAME,
+    CONF_PASSWORD,
+    "serial_number",
+    "imei",
+    "gateway_imei",
+    "spuck_id",
+}
 
 
 async def async_get_config_entry_diagnostics(
@@ -19,12 +26,13 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
     coordinator = entry.runtime_data
-    gateways = {
-        imei: async_redact_data(asdict(gateway), TO_REDACT)
-        for imei, gateway in coordinator.data.items()
-    }
+    # A list (not an IMEI-keyed dict) so the identifier isn't exposed as a key —
+    # async_redact_data only redacts values, not dict keys.
     return {
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
         "last_update_success": coordinator.last_update_success,
-        "gateways": async_redact_data(gateways, TO_REDACT),
+        "gateways": [
+            async_redact_data(asdict(gateway), TO_REDACT)
+            for gateway in coordinator.data.values()
+        ],
     }

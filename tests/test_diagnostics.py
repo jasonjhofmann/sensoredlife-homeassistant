@@ -24,10 +24,14 @@ async def test_diagnostics_redacts_credentials(
     assert diag["entry"]["password"] == "**REDACTED**"
     assert diag["last_update_success"] is True
 
-    gateway = diag["gateways"]["350000000000001"]
-    assert gateway["name"] == "Wine Cellar"
+    gateways = {g["name"]: g for g in diag["gateways"]}
+    gateway = gateways["Wine Cellar"]
+    # Identifiers are redacted (including the IMEI, which is no longer a key).
     assert gateway["serial_number"] == "**REDACTED**"
+    assert gateway["imei"] == "**REDACTED**"
     assert gateway["temperature"] == 58.8
     # The offline SPuck's sentinel readings are None in the parsed model.
     spucks = {s["name"]: s for s in gateway["spucks"]}
     assert spucks["Chest Freezer"]["temperature"] is None
+    assert spucks["Chest Freezer"]["spuck_id"] == "**REDACTED**"
+    assert spucks["Chest Freezer"]["gateway_imei"] == "**REDACTED**"

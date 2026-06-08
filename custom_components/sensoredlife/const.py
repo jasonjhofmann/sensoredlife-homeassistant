@@ -15,10 +15,16 @@ DEVICES_PATH: Final = "/api/users/{user_id}/devices"
 # On-demand "request a fresh reading" — tells the gateway to call in now. This
 # spends one of the account's paid instant-update credits.
 FORCE_UPDATE_PATH: Final = "/api/devices/{imei}/sendtext/RPT"
+# After a force-update, the gateway takes a few seconds to call in (~7 s
+# observed). Re-poll once after this delay so the new reading shows up without
+# waiting for the next scheduled refresh.
+FORCE_UPDATE_SETTLE: Final = timedelta(seconds=20)
 
-# The MarCELL units only call in to the cloud every ~1-2 hours; polling the
-# cloud cache more often than that just keeps HA in sync. It never triggers a
-# paid on-demand cellular "instant update".
+# We poll the cloud cache every 15 minutes. A MarCELL only uploads to the cloud
+# every 8 h (4 h on Pro) unless a viewer is "active" in the web app — which this
+# integration does not simulate — so a cached value can be several hours old.
+# Polling more often just keeps HA in step with the last upload; it never
+# triggers a paid on-demand cellular "instant update".
 DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=15)
 
 # The auth token is valid for ~30 days; re-login proactively when it has less
@@ -26,9 +32,10 @@ DEFAULT_SCAN_INTERVAL: Final = timedelta(minutes=15)
 TOKEN_REFRESH_BUFFER: Final = timedelta(days=1)
 
 # A gateway whose most recent cloud read is older than this is treated as
-# offline (connectivity binary_sensor off). Generous, because some units only
-# report a few times per day.
-STALE_AFTER: Final = timedelta(hours=8)
+# offline (connectivity binary_sensor off). Kept just above the slowest normal
+# upload cadence (8 h on non-Pro models) so a healthy device on schedule never
+# false-flags as offline; a genuinely silent device still trips within ~9 h.
+STALE_AFTER: Final = timedelta(hours=9)
 
 # SPuck "no current reading" sentinels (sensor offline, out of RF range, or a
 # puck with no temp/humidity element — e.g. a leak-only puck). The cloud reports
