@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — 2026-06-07
+
+- Bundle brand artwork in `custom_components/sensoredlife/brand/` (icon + MarCELL
+  logo, with dark-theme variants). Home Assistant 2026.3+ serves these locally
+  via the brands proxy, so the integration shows its icon/logo without waiting
+  on a home-assistant/brands submission.
+
 ## 0.2.0 — 2026-06-07
 
 - Fix: the **Last read** timestamp was several hours off (it appeared in the
