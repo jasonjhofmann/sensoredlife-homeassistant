@@ -1,5 +1,9 @@
 # SensoredLife (MarCELL) for Home Assistant
 
+[![release](https://img.shields.io/github/v/release/jasonjhofmann/sensoredlife-homeassistant?label=release&color=blue)](https://github.com/jasonjhofmann/sensoredlife-homeassistant/releases)
+[![hacs](https://img.shields.io/badge/HACS-custom-orange.svg)](https://hacs.xyz)
+[![validate](https://github.com/jasonjhofmann/sensoredlife-homeassistant/actions/workflows/validate.yml/badge.svg)](https://github.com/jasonjhofmann/sensoredlife-homeassistant/actions/workflows/validate.yml)
+
 A custom integration that brings [SensoredLife](https://www.sensoredlife.com)
 **MarCELL** cellular temperature / humidity / power monitors — and their wireless
 **SPuck** sub-probes — into Home Assistant.
