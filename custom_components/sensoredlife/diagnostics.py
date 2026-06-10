@@ -30,7 +30,11 @@ async def async_get_config_entry_diagnostics(
     # async_redact_data only redacts values, not dict keys.
     return {
         "entry": async_redact_data(dict(entry.data), TO_REDACT),
+        "update_interval": str(coordinator.update_interval),
         "last_update_success": coordinator.last_update_success,
+        "last_exception": (
+            str(coordinator.last_exception) if coordinator.last_exception else None
+        ),
         "gateways": [
             async_redact_data(asdict(gateway), TO_REDACT)
             for gateway in coordinator.data.values()

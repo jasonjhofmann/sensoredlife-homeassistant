@@ -194,6 +194,9 @@ No credentials or files are left behind.
   gateway. Check the gateway's **Online** binary sensor and **Last read** time.
 - **Re-authentication prompt** — your SensoredLife password changed; enter the
   new one when prompted.
+- **Download diagnostics** (integration page → ⋮ → Download diagnostics) to
+  see parsed gateway/SPuck data, update health, and the last error —
+  credentials and device identifiers are redacted.
 
 Enable debug logging:
 
@@ -208,6 +211,12 @@ logger:
 Targets the **Platinum** tier of the Home Assistant Integration Quality Scale.
 See [`custom_components/sensoredlife/quality_scale.yaml`](custom_components/sensoredlife/quality_scale.yaml)
 for the per-rule status (module test coverage is ≥95%, `mypy --strict` clean).
+
+## Development
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) — architecture tour, project
+invariants (XSRF session isolation, sentinel handling, identifier redaction),
+quality gates, and the release process.
 
 ## License
 
