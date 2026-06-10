@@ -11,13 +11,31 @@ from homeassistant.core import HomeAssistant
 from .const import CONF_PASSWORD, CONF_USERNAME
 from .coordinator import SensoredLifeConfigEntry
 
+# Keys redacted at any depth. Beyond the keys the dump contains TODAY
+# (entry credentials + parsed snake_case identifiers), this pre-lists the
+# sensitive keys of SensoredLife's RAW API payloads — the /devices roster
+# (PascalCase) and the login response — which we never include today but
+# would need scrubbing if a future revision attached a raw payload to the
+# dump. async_redact_data matches dict keys at any depth, and unused keys
+# cost nothing, so the superset is free insurance against drift.
 TO_REDACT = {
+    # Entry data
     CONF_USERNAME,
     CONF_PASSWORD,
+    # Parsed-model identifier keys (present in today's dump)
     "serial_number",
     "imei",
     "gateway_imei",
     "spuck_id",
+    # Raw /devices payload keys (hypothetical future inclusion)
+    "IMEI",
+    "SerialNumber",
+    "DeviceId",
+    "PeripheralId",
+    "Id",
+    "Location",
+    # Raw login-response keys (hypothetical future inclusion)
+    "AccessToken",
 }
 
 

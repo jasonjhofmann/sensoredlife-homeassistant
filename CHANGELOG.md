@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 — 2026-06-10
+
+- Diagnostics redact set now pre-lists the sensitive keys of the RAW
+  API payloads (PascalCase /devices roster + login response) that the
+  dump never includes today — so if a future revision attaches a raw
+  payload, identifiers/tokens scrub automatically instead of leaking.
+  Includes a regression test.
+
 ## 0.5.1 — 2026-06-10
 
 Observability & maintainability pass, plus one forward-compat fix the
