@@ -35,3 +35,33 @@ async def test_diagnostics_redacts_credentials(
     assert spucks["Chest Freezer"]["temperature"] is None
     assert spucks["Chest Freezer"]["spuck_id"] == "**REDACTED**"
     assert spucks["Chest Freezer"]["gateway_imei"] == "**REDACTED**"
+
+
+def test_redact_set_covers_raw_payload_keys() -> None:
+    """Future-proofing: raw API payload keys scrub even though today's
+    dump never includes raw payloads (guards against drift)."""
+    from homeassistant.components.diagnostics import async_redact_data
+
+    from custom_components.sensoredlife.diagnostics import TO_REDACT
+
+    hypothetical_raw = {
+        "IMEI": "350123456789012",
+        "SerialNumber": "MC-1234",
+        "DeviceId": 99,
+        "PeripheralId": 7,
+        "Id": 1234,
+        "Location": "123 Main St",
+        "AccessToken": "tok",
+        "nested": [{"IMEI": "350000000000000"}],
+        "Temperature": 58.8,  # non-sensitive keys survive
+    }
+    out = async_redact_data(hypothetical_raw, TO_REDACT)
+    assert out["IMEI"] == "**REDACTED**"
+    assert out["SerialNumber"] == "**REDACTED**"
+    assert out["DeviceId"] == "**REDACTED**"
+    assert out["PeripheralId"] == "**REDACTED**"
+    assert out["Id"] == "**REDACTED**"
+    assert out["Location"] == "**REDACTED**"
+    assert out["AccessToken"] == "**REDACTED**"
+    assert out["nested"][0]["IMEI"] == "**REDACTED**"
+    assert out["Temperature"] == 58.8
