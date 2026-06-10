@@ -11,8 +11,10 @@ custom_components/sensoredlife/
                    The cloud's offline sentinels (999.9 / 99.9) are normalized
                    to None HERE, not in entities.
   coordinator.py   One coordinator per account. Polls /devices (the full
-                   account roster), prunes registry devices that left the
-                   roster (never on an empty response), logs removals.
+                   account roster), prunes registry devices only after 3
+                   consecutive polls missing (never on an empty response),
+                   logs removals; one auth failure is damped to a retry,
+                   reauth starts on the second consecutive failure.
   entity.py        Gateway/SPuck base entities and device wiring.
   sensor.py / binary_sensor.py / button.py   Entities; button = force call-in.
   diagnostics.py   Redacts credentials AND identifiers (serials, IMEIs,

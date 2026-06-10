@@ -22,11 +22,14 @@ TO_REDACT = {
     # Entry data
     CONF_USERNAME,
     CONF_PASSWORD,
-    # Parsed-model identifier keys (present in today's dump)
+    # Parsed-model identifier keys (present in today's dump). ``location`` is
+    # street-address-class data, and async_redact_data is case-sensitive — the
+    # PascalCase "Location" below only covers the raw payload form.
     "serial_number",
     "imei",
     "gateway_imei",
     "spuck_id",
+    "location",
     # Raw /devices payload keys (hypothetical future inclusion)
     "IMEI",
     "SerialNumber",

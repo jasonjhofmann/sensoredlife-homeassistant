@@ -1,7 +1,7 @@
 [
   {
     "Name": "Wine Cellar", "IMEI": "350000000000001", "DeviceId": "350000000000001",
-    "SerialNumber": "HLGNPF", "Timezone": -8, "BatteryVoltage": "4.09", "FirmwareVersion": "1074",
+    "SerialNumber": "TESTA1", "Timezone": -8, "BatteryVoltage": "4.09", "FirmwareVersion": "1074",
     "Location": "Wine Cellar",
     "LastRead": {"Temperature": "58.80", "Humidity": "31.90", "Power": "1.00", "SignalStrength": "32",
                  "ReportTimestamp": "2026-06-08 02:10:33", "FormattedLastMessage": "Monday"},
@@ -27,7 +27,7 @@
   },
   {
     "Name": "Warehouse", "IMEI": "350000000000002", "DeviceId": "350000000000002",
-    "SerialNumber": "MHXF85", "Timezone": -5, "BatteryVoltage": "4.16",
+    "SerialNumber": "TESTB2", "Timezone": -5, "BatteryVoltage": "4.16",
     "LastRead": {"Temperature": "81.30", "Humidity": "0.00", "Power": "1.00", "SignalStrength": "30",
                  "ReportTimestamp": "2026-06-08 02:10:33"},
     "AlarmPoints": [

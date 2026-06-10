@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .const import (
-    SENTINEL_TOLERANCE,
     SPUCK_HUMID_SENTINELS,
     SPUCK_TEMP_SENTINELS,
     STALE_AFTER,
@@ -19,10 +18,15 @@ type Json = dict[str, Any]
 
 
 def _drop_sentinel(value: float | None, sentinels: tuple[float, ...]) -> float | None:
-    """Map a no-reading sentinel to None; pass real readings through."""
+    """Map a no-reading sentinel to None; pass real readings through.
+
+    The cloud sends sentinels as the exact strings "999.90" / "99.90", so
+    compare exactly after rounding to one decimal — a tolerance window would
+    also swallow REAL readings near a sentinel (e.g. 99.4–100.4 %RH).
+    """
     if value is None:
         return None
-    if any(abs(value - s) <= SENTINEL_TOLERANCE for s in sentinels):
+    if round(value, 1) in sentinels:
         return None
     return value
 
@@ -159,13 +163,17 @@ class Gateway:
 
 
 def _device_range(raw: Json, sensor_type: str) -> tuple[float | None, float | None]:
-    """(min, max) for a device-level AlarmPoint (PeripheralId is None)."""
+    """(min, max) for a device-level AlarmPoint (PeripheralId is None).
+
+    The API sends numbers as strings, so the bounds are coerced like every
+    other reading — SafeRange.contains would otherwise compare str to float.
+    """
     for ap in raw.get("AlarmPoints") or []:
         if ap.get("PeripheralId"):
             continue
         sensor = ap.get("DeviceSensor") or {}
         if sensor.get("SensorType") == sensor_type:
-            return ap.get("RangeMin"), ap.get("RangeMax")
+            return _to_float(ap.get("RangeMin")), _to_float(ap.get("RangeMax"))
     return None, None
 
 
@@ -176,7 +184,11 @@ def _reading(
     for ap in alarm_points or []:
         sensor = ap.get("DeviceSensor") or {}
         if sensor.get("SensorType") == sensor_type:
-            return _to_float(ap.get("LastRead")), ap.get("RangeMin"), ap.get("RangeMax")
+            return (
+                _to_float(ap.get("LastRead")),
+                _to_float(ap.get("RangeMin")),
+                _to_float(ap.get("RangeMax")),
+            )
     return None, None, None
 
 

@@ -67,7 +67,8 @@ async def test_devices_registered(
 
     gateway = registry.async_get_device(identifiers={(DOMAIN, "350000000000001")})
     assert gateway is not None
-    assert gateway.model == "MarCELL PRO"
+    # Generic family name — the API exposes no model/tier indicator.
+    assert gateway.model == "MarCELL"
 
     spuck = registry.async_get_device(identifiers={(DOMAIN, "AAAA0002")})
     assert spuck is not None
@@ -237,27 +238,120 @@ async def test_dynamic_devices(
     assert hass.states.get("button.new_site_request_reading") is not None
 
 
+async def _refresh_with(
+    hass: HomeAssistant, mock_client, entry: MockConfigEntry, payload: list
+) -> None:
+    """Point the mocked client at a payload and run one coordinator refresh."""
+    from custom_components.sensoredlife.models import parse_devices
+
+    mock_client.async_get_gateways = AsyncMock(return_value=parse_devices(payload))
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+
 async def test_stale_devices(
     hass: HomeAssistant,
     mock_client,
     mock_config_entry: MockConfigEntry,
     devices_payload,
 ) -> None:
-    """A gateway removed from the account is dropped from the device registry."""
-    from custom_components.sensoredlife.models import parse_devices
-
+    """A gateway missing from 3 consecutive polls is dropped from the registry."""
     await _setup(hass, mock_config_entry)
     registry = dr.async_get(hass)
     assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
 
     reduced = [d for d in devices_payload if d["IMEI"] != "350000000000002"]
-    mock_client.async_get_gateways = AsyncMock(return_value=parse_devices(reduced))
-    await mock_config_entry.runtime_data.async_refresh()
-    await hass.async_block_till_done()
+    for _ in range(3):
+        await _refresh_with(hass, mock_client, mock_config_entry, reduced)
 
     assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")}) is None
     # A surviving gateway stays.
     assert registry.async_get_device(identifiers={(DOMAIN, "350000000000001")})
+
+
+async def test_transient_absence_not_pruned(
+    hass: HomeAssistant,
+    mock_client,
+    mock_config_entry: MockConfigEntry,
+    devices_payload,
+) -> None:
+    """One or two polls missing (a transient partial response) prune nothing."""
+    await _setup(hass, mock_config_entry)
+    registry = dr.async_get(hass)
+
+    reduced = [d for d in devices_payload if d["IMEI"] != "350000000000002"]
+    for _ in range(2):
+        await _refresh_with(hass, mock_client, mock_config_entry, reduced)
+        assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+
+    # The full roster returns — the miss streak resets…
+    await _refresh_with(hass, mock_client, mock_config_entry, devices_payload)
+    # …so two MORE misses still don't reach the 3-consecutive threshold.
+    for _ in range(2):
+        await _refresh_with(hass, mock_client, mock_config_entry, reduced)
+    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+    assert hass.states.get("sensor.warehouse_temperature") is not None
+
+
+async def test_pruned_device_reappears(
+    hass: HomeAssistant,
+    mock_client,
+    mock_config_entry: MockConfigEntry,
+    devices_payload,
+) -> None:
+    """A pruned device that returns to the roster gets device + entities back."""
+    await _setup(hass, mock_config_entry)
+    registry = dr.async_get(hass)
+    assert hass.states.get("sensor.warehouse_temperature") is not None
+
+    reduced = [d for d in devices_payload if d["IMEI"] != "350000000000002"]
+    for _ in range(3):
+        await _refresh_with(hass, mock_client, mock_config_entry, reduced)
+    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")}) is None
+    assert hass.states.get("sensor.warehouse_temperature") is None
+
+    # The gateway reappears in the account — no restart needed.
+    await _refresh_with(hass, mock_client, mock_config_entry, devices_payload)
+    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+    temp = hass.states.get("sensor.warehouse_temperature")
+    assert temp is not None
+    assert temp.state != STATE_UNAVAILABLE
+    assert hass.states.get("button.warehouse_request_reading") is not None
+
+
+async def test_single_auth_glitch_no_reauth(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """One auth failure after a working poll is damped to UpdateFailed."""
+    await _setup(hass, mock_config_entry)
+
+    mock_client.async_get_gateways = AsyncMock(side_effect=SensoredLifeAuthError)
+    await mock_config_entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+
+    coordinator = mock_config_entry.runtime_data
+    assert coordinator.last_update_success is False
+    # No reauth flow was started for a single (possibly transient) failure.
+    assert not [
+        f
+        for f in hass.config_entries.flow.async_progress()
+        if f["context"]["source"] == "reauth"
+    ]
+
+
+async def test_second_consecutive_auth_failure_reauths(
+    hass: HomeAssistant, mock_client, mock_config_entry: MockConfigEntry
+) -> None:
+    """Two consecutive auth failures start the reauthentication flow."""
+    await _setup(hass, mock_config_entry)
+
+    mock_client.async_get_gateways = AsyncMock(side_effect=SensoredLifeAuthError)
+    for _ in range(2):
+        await mock_config_entry.runtime_data.async_refresh()
+        await hass.async_block_till_done()
+
+    flows = hass.config_entries.flow.async_progress()
+    assert any(f["context"]["source"] == "reauth" for f in flows)
 
 
 async def test_setup_auth_failure_triggers_reauth(

@@ -221,6 +221,65 @@ async def test_devices_bad_shape(
         await client.async_get_gateways()
 
 
+async def test_login_html_body_maps_to_connection_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A 200 login with an HTML body maps to a connection error, not a traceback."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, text="<html>maintenance</html>")
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+    with pytest.raises(SensoredLifeConnectionError):
+        await client.async_login()
+
+
+async def test_devices_html_body_maps_to_connection_error(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A 200 devices response with an HTML body maps to a connection error."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, json=_token_body())
+    aioclient_mock.get(_devices_url(99999), text="<html>oops</html>")
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+    with pytest.raises(SensoredLifeConnectionError):
+        await client.async_get_gateways()
+
+
+async def test_token_expiration_missing_defaults_to_24h(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    devices_payload,
+) -> None:
+    """A login response without TokenExpiration doesn't re-login every poll."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, json={"Id": 99999, "AccessToken": "tok-abc"})
+    aioclient_mock.get(_devices_url(99999), json=devices_payload)
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+
+    await client.async_get_gateways()
+    await client.async_get_gateways()
+    # The assumed 24 h validity keeps the token fresh across polls.
+    assert sum(1 for c in aioclient_mock.mock_calls if str(c[1]) == LOGIN_URL) == 1
+
+
+async def test_token_expiration_unparseable_defaults_to_24h(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    devices_payload,
+) -> None:
+    """A non-numeric TokenExpiration is handled, not an uncaught ValueError."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(
+        LOGIN_URL,
+        json={"Id": 99999, "AccessToken": "tok-abc", "TokenExpiration": "soon"},
+    )
+    aioclient_mock.get(_devices_url(99999), json=devices_payload)
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+
+    await client.async_get_gateways()
+    await client.async_get_gateways()
+    assert sum(1 for c in aioclient_mock.mock_calls if str(c[1]) == LOGIN_URL) == 1
+
+
 async def test_expired_token_refreshes(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
