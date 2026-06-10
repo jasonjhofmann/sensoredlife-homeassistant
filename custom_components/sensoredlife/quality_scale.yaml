@@ -81,7 +81,11 @@ rules:
     status: exempt
     comment: The only user-actionable failure is bad credentials, handled by the
       reauthentication flow.
-  stale-devices: done
+  stale-devices:
+    status: done
+    comment: Pruned only after 3 consecutive polls missing, so a transient
+      partial response never deletes a device; a pruned device that reappears
+      gets its device and entities recreated without a restart.
 
   # --- Platinum -----------------------------------------------------------
   async-dependency:

@@ -30,7 +30,8 @@ def add_entities_for_devices(
     for the current coordinator data. Entities are created once per unique_id;
     the listener picks up devices added to the account after setup
     (dynamic-devices). Removal of vanished devices is handled by the
-    coordinator (stale-devices).
+    coordinator (stale-devices); when it prunes a device, its unique_ids are
+    forgotten here so a device that later reappears gets its entities back.
     """
     coordinator = entry.runtime_data
     known: set[str] = set()
@@ -43,8 +44,16 @@ def add_entities_for_devices(
         if new:
             async_add_entities(new)
 
+    @callback
+    def _forget_device(identifier: str) -> None:
+        # All unique_ids are "{identifier}_{key}" (see the platform _build
+        # functions), so a prefix match captures every entity of the device.
+        prefix = f"{identifier}_"
+        known.difference_update({uid for uid in known if uid.startswith(prefix)})
+
     _process()
     entry.async_on_unload(coordinator.async_add_listener(_process))
+    entry.async_on_unload(coordinator.async_add_device_removed_listener(_forget_device))
 
 
 class GatewayEntity(CoordinatorEntity[SensoredLifeCoordinator]):
@@ -74,7 +83,11 @@ class GatewayEntity(CoordinatorEntity[SensoredLifeCoordinator]):
         return DeviceInfo(
             identifiers={(DOMAIN, self._imei)},
             manufacturer=MANUFACTURER,
-            model="MarCELL PRO",
+            # The /devices payload carries no model/tier indicator (verified
+            # against captures), so use the generic family name instead of
+            # guessing a tier. STALE_AFTER in const.py is likewise sized for
+            # the slowest (non-Pro, 8 h) upload cadence.
+            model="MarCELL",
             name=gateway.name if gateway else self._imei,
             serial_number=gateway.serial_number if gateway else None,
             sw_version=gateway.firmware if gateway else None,

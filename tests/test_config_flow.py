@@ -43,6 +43,23 @@ async def test_user_flow_success(hass: HomeAssistant, mock_client) -> None:
     assert result["result"].unique_id == USERNAME.lower()
 
 
+async def test_flow_does_not_close_shared_session(
+    hass: HomeAssistant, mock_client, caplog
+) -> None:
+    """Validation must not close its HA-created session (blocked in HA 2026.5+)."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    with patch("custom_components.sensoredlife.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], USER_INPUT
+        )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    # Core logs this exact complaint when an integration closes a session it
+    # got from async_create_clientsession.
+    assert "closes the Home Assistant aiohttp session" not in caplog.text
+
+
 async def test_user_flow_invalid_auth(hass: HomeAssistant, mock_client) -> None:
     """Bad credentials surface invalid_auth, then can recover."""
     mock_client.async_login = AsyncMock(side_effect=SensoredLifeAuthError)

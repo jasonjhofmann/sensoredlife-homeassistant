@@ -31,6 +31,10 @@ class SensoredLifeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _validate(self, username: str, password: str) -> str | None:
         """Try to log in. Return an error key, or None on success."""
+        # A dedicated session (own cookie jar) keeps the login XSRF cookie out
+        # of Home Assistant's shared session. HA owns its lifecycle (closed at
+        # shutdown) — calling session.close() ourselves is blocked by core's
+        # warn_use wrapper as of HA 2026.5+.
         session = async_create_clientsession(self.hass)
         client = SensoredLifeClient(session, username, password)
         try:
@@ -39,8 +43,6 @@ class SensoredLifeConfigFlow(ConfigFlow, domain=DOMAIN):
             return "invalid_auth"
         except SensoredLifeConnectionError:
             return "cannot_connect"
-        finally:
-            await session.close()
         return None
 
     async def async_step_user(

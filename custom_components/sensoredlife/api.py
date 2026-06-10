@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import unquote
 
@@ -132,6 +132,12 @@ class SensoredLifeClient:
             ) from err
         except (ClientError, TimeoutError) as err:
             raise SensoredLifeConnectionError(f"Login failed: {err}") from err
+        except ValueError as err:
+            # A 200 with a non-JSON body (e.g. an HTML error page) is a cloud
+            # glitch, not bad credentials.
+            raise SensoredLifeConnectionError(
+                "Login response was not valid JSON"
+            ) from err
 
         token = body.get("AccessToken") if isinstance(body, dict) else None
         user_id = body.get("Id") if isinstance(body, dict) else None
@@ -140,7 +146,24 @@ class SensoredLifeClient:
             raise SensoredLifeAuthError("Login response did not contain a token")
         self._token = token
         self._user_id = user_id
-        self._expires = int(body.get("TokenExpiration") or 0)
+        raw_expires = body.get("TokenExpiration")
+        try:
+            self._expires = int(raw_expires)
+        except (TypeError, ValueError):
+            # Missing or unparseable expiry: assume the (normally ~30-day)
+            # token is good for at least 24 h rather than treating it as
+            # already expired, which would force a re-login on every poll.
+            # ``_token_fresh`` subtracts TOKEN_REFRESH_BUFFER, so add it back.
+            self._expires = int(
+                (
+                    datetime.now(UTC) + timedelta(hours=24) + TOKEN_REFRESH_BUFFER
+                ).timestamp()
+            )
+            _LOGGER.debug(
+                "TokenExpiration missing or unparseable (%r); assuming the "
+                "token is valid for 24 h",
+                raw_expires,
+            )
         _LOGGER.debug(
             "Login OK for user id %s; token expires at %s",
             self._user_id,
@@ -222,3 +245,8 @@ class SensoredLifeClient:
             ) from err
         except (ClientError, TimeoutError) as err:
             raise SensoredLifeConnectionError(f"Devices fetch failed: {err}") from err
+        except ValueError as err:
+            # A 200 with a non-JSON body (e.g. an HTML error page).
+            raise SensoredLifeConnectionError(
+                "Devices response was not valid JSON"
+            ) from err
