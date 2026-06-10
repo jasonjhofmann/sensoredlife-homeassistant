@@ -4,7 +4,11 @@
 
 [tool.ruff]
 line-length = 88
-target-version = "py314"
+# Must match the OLDEST supported interpreter (HA 2024.12 = Python 3.12),
+# not the newest: under py314, ruff format rewrites `except (A, B):` into
+# the 3.14-only unparenthesized form — a SyntaxError on every older HA
+# (the regression that shipped in visiblair 0.6.2).
+target-version = "py312"
 extend-exclude = ["tests/fixtures"]
 
 [tool.ruff.lint]
@@ -31,6 +35,9 @@ ignore = [
 "tests/*" = ["B011"]  # pytest uses assert intentionally
 
 [tool.mypy]
+# Stays at 3.14 (NOT the support floor): mypy parses the installed current
+# HA source, which itself uses 3.14-only syntax, so it cannot target the
+# floor. The floor is enforced by ruff target-version and CI instead.
 python_version = "3.14"
 strict = true
 warn_unreachable = true
