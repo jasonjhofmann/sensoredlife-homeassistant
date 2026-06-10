@@ -25,7 +25,9 @@ Invariants:
 
 - **The login session is dedicated** (own cookie jar via
   `async_create_clientsession`) so the XSRF cookie never touches HA's shared
-  session; it closes on entry unload.
+  session. Do NOT close it manually — HA owns created-session lifecycles and
+  core blocks `session.close()` (warn_use, hard error under test since
+  HA 2026.5).
 - **Stale-token policy is retry-once** — a second 401/403 surfaces as
   reauth, never a login loop.
 - **Sentinels die in models.py.** Entities must never see 999.9/99.9.

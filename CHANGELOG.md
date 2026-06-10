@@ -2,7 +2,12 @@
 
 ## 0.5.1 — 2026-06-10
 
-Observability & maintainability pass (no functional changes).
+Observability & maintainability pass, plus one forward-compat fix the
+new CI gate caught immediately.
+
+- **Fix**: stop closing the dedicated login session on unload — sessions
+  from `async_create_clientsession` are lifecycle-owned by Home Assistant,
+  and core makes manual `close()` a hard error under HA 2026.5+.
 
 - **CI now enforces the quality gates**: pytest with `--cov-fail-under=95`,
   `mypy` (strict), and `ruff` run on every PR alongside hassfest/HACS —
