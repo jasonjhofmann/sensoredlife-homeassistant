@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+- Tooling/CI only — pin ruff's `target-version` to the Python support
+  floor (py312, per the declared HA 2024.12 minimum) instead of py314.
+  Under py314, `ruff format` rewrites `except (A, B):` into the
+  3.14-only unparenthesized form (PEP 758), which would ship a
+  SyntaxError to every HA on Python ≤3.13 (the regression that hit
+  visiblair 0.6.2). Mypy stays on 3.14 (it parses installed HA source,
+  which uses 3.14-only syntax). CI now runs pytest on a 3.13/3.14
+  matrix, adds `ruff format --check`, and adds a Python 3.12
+  `compileall` syntax-floor job.
+
 ## 0.5.2 — 2026-06-10
 
 - Diagnostics redact set now pre-lists the sensitive keys of the RAW
