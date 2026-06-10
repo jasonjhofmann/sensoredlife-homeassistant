@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.1 — 2026-06-10
+
+Observability & maintainability pass (no functional changes).
+
+- **CI now enforces the quality gates**: pytest with `--cov-fail-under=95`,
+  `mypy` (strict), and `ruff` run on every PR alongside hassfest/HACS —
+  previously they existed only locally.
+- **Debug logging**: login outcomes (token expiry — never the token),
+  per-poll gateway/SPuck counts, force-update requests; stale-device
+  removals now log at INFO instead of mutating the registry silently.
+- **Diagnostics** add update interval and the last error.
+- **CONTRIBUTING.md**: architecture tour and the project's invariants
+  (XSRF session isolation, retry-once token policy, sentinel handling,
+  identifier redaction).
+- README: diagnostics-download troubleshooting bullet, Development section.
+
 ## 0.5.0 — 2026-06-08
 
 - Add a **Last call-in** timestamp sensor to each SPuck, exposing when the probe

@@ -64,6 +64,11 @@ class SensoredLifeCoordinator(DataUpdateCoordinator[dict[str, Gateway]]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except SensoredLifeConnectionError as err:
             raise UpdateFailed(str(err)) from err
+        _LOGGER.debug(
+            "Poll OK: %d gateways (%s)",
+            len(data),
+            ", ".join(gateway.name for gateway in data.values()) or "none",
+        )
         self._async_remove_stale_devices(data)
         return data
 
@@ -90,6 +95,10 @@ class SensoredLifeCoordinator(DataUpdateCoordinator[dict[str, Gateway]]):
         ):
             ids = {ident for domain, ident in device.identifiers if domain == DOMAIN}
             if ids and ids.isdisjoint(current):
+                _LOGGER.info(
+                    "Removing stale device %s — no longer in the account roster",
+                    device.name,
+                )
                 device_registry.async_update_device(
                     device.id, remove_config_entry_id=self.config_entry.entry_id
                 )
