@@ -141,6 +141,11 @@ class SensoredLifeClient:
         self._token = token
         self._user_id = user_id
         self._expires = int(body.get("TokenExpiration") or 0)
+        _LOGGER.debug(
+            "Login OK for user id %s; token expires at %s",
+            self._user_id,
+            self._expires,
+        )
 
     async def async_get_gateways(self) -> dict[str, Gateway]:
         """Return all gateways (with SPucks), refreshing the token as needed."""
@@ -157,10 +162,18 @@ class SensoredLifeClient:
 
         if not isinstance(payload, list):
             raise SensoredLifeConnectionError("Unexpected devices response shape")
-        return parse_devices(payload)
+        gateways = parse_devices(payload)
+        _LOGGER.debug(
+            "Devices feed: %d raw entries -> %d gateways, %d SPucks",
+            len(payload),
+            len(gateways),
+            sum(len(gateway.spucks) for gateway in gateways.values()),
+        )
+        return gateways
 
     async def async_force_update(self, imei: str) -> None:
         """Ask a gateway to call in now (spends one instant-update credit)."""
+        _LOGGER.debug("Force-update requested for gateway %s…%s", imei[:2], imei[-4:])
         if not self._token_fresh:
             await self.async_login()
         try:
