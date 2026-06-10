@@ -41,9 +41,11 @@ STALE_AFTER: Final = timedelta(hours=9)
 # puck with no temp/humidity element — e.g. a leak-only puck). The cloud reports
 # 999.9 for a TH puck that lost its reading and 99.9 for a puck that has no such
 # element at all; the vendor UI shows both as N/A, so both map to unavailable.
+# Sent as the exact strings "999.90"/"99.90", so they are matched exactly
+# (after rounding to one decimal) — no tolerance window, which would also
+# swallow real readings near a sentinel.
 SPUCK_TEMP_SENTINELS: Final = (999.9, 99.9)
 SPUCK_HUMID_SENTINELS: Final = (99.9,)
-SENTINEL_TOLERANCE: Final = 0.5
 
 CONF_USERNAME: Final = "username"
 CONF_PASSWORD: Final = "password"

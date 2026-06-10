@@ -18,8 +18,9 @@ instant-update credits.
 
 ## Supported devices
 
-- **MarCELL PRO** cellular gateway (temperature / humidity / mains-power monitor
-  with a backup battery). Each gateway is one Home Assistant device.
+- **MarCELL** cellular gateways, including MarCELL PRO (temperature / humidity /
+  mains-power monitor with a backup battery). Each gateway is one Home Assistant
+  device.
 - **SPuck** wireless sub-probes paired to a gateway, as child devices:
   - Temperature/humidity SPucks (e.g. fridge/freezer/cellar probes).
   - Leak/other SPucks with no climate element (e.g. "Leak Puck") still appear

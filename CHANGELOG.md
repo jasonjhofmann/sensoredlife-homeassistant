@@ -1,11 +1,48 @@
 # Changelog
 
-## [Unreleased]
+## 0.5.3 — 2026-06-10
 
-- Tooling/CI only — pin ruff's `target-version` to the Python support
-  floor (py312, per the declared HA 2024.12 minimum) instead of py314.
-  Under py314, `ruff format` rewrites `except (A, B):` into the
-  3.14-only unparenthesized form (PEP 758), which would ship a
+Audit fixes — robustness against cloud glitches, plus privacy cleanups.
+
+- **Fix (stale devices)**: a device is now pruned from the registry only
+  after it has been missing from **3 consecutive polls** — a transient
+  partial `/devices` response no longer permanently deletes a device. And
+  when a pruned device later reappears in the account, its entities are
+  recreated immediately instead of requiring a restart.
+- **Fix (diagnostics)**: the parsed lowercase `location` field
+  (street-address-class data) is now redacted — previously only the raw
+  PascalCase `Location` key was listed, and redaction is case-sensitive.
+- **Fix (config flow)**: stop closing the validation session —
+  `async_create_clientsession` sessions are lifecycle-owned by Home
+  Assistant, and HA 2026.5+ blocks the close with a "Please create a bug
+  report" warning (same fix the coordinator got in 0.5.1).
+- **Fix (API client)**: a 200 response with a non-JSON body (e.g. an HTML
+  maintenance page) on login or the devices fetch now maps to the normal
+  connection error instead of escaping as a raw `JSONDecodeError`. A
+  missing or unparseable `TokenExpiration` no longer forces a re-login on
+  every poll (or crashes) — the token is assumed valid for 24 h, with a
+  debug log.
+- **Fix (reauth damping)**: a single auth failure after a working poll —
+  e.g. a transient CSRF rejection — now retries as a normal failed update;
+  only a **second consecutive** auth failure starts the reauthentication
+  flow. Initial setup still reauths immediately on bad credentials.
+- **Fix (safe ranges)**: `RangeMin`/`RangeMax` alarm bounds are coerced to
+  floats like every other reading (the API sends numbers as strings), so
+  the `in_safe_range` attribute no longer raises `TypeError` on string
+  bounds.
+- **Fix (sentinels)**: the offline sentinels (999.9 / 99.9) are matched
+  exactly (after rounding to one decimal) instead of with a ±0.5 tolerance
+  window, so real readings in 99.4–100.4 °F / %RH are no longer masked as
+  unavailable.
+- Gateway device model is now the generic **"MarCELL"** — the API exposes
+  no model/tier indicator, so the previous hardcoded "MarCELL PRO" was a
+  guess (and inconsistent with the 9 h offline threshold, which is sized
+  for the non-Pro 8 h upload cadence).
+- Test fixtures now use clearly synthetic serial numbers.
+- Tooling/CI (previously unreleased) — pin ruff's `target-version` to the
+  Python support floor (py312, per the declared HA 2024.12 minimum)
+  instead of py314. Under py314, `ruff format` rewrites `except (A, B):`
+  into the 3.14-only unparenthesized form (PEP 758), which would ship a
   SyntaxError to every HA on Python ≤3.13 (the regression that hit
   visiblair 0.6.2). Mypy stays on 3.14 (it parses installed HA source,
   which uses 3.14-only syntax). CI now runs pytest on a 3.13/3.14
