@@ -31,8 +31,8 @@ jobs:
       - name: Hassfest
         uses: home-assistant/actions/hassfest@master
 
-  tests:
-    name: Tests, typing, lint
+  lint:
+    name: Typing & lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -44,11 +44,46 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements_test.txt
 
-      - name: Pytest with coverage gate
-        run: pytest tests -q --cov=custom_components.sensoredlife --cov-fail-under=95
+      - name: Ruff check
+        run: ruff check custom_components tests
+
+      - name: Ruff format check
+        run: ruff format --check custom_components tests
 
       - name: Mypy (strict via pyproject)
         run: mypy custom_components/sensoredlife/
 
-      - name: Ruff
-        run: ruff check custom_components tests
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install test dependencies
+        run: pip install -r requirements_test.txt
+
+      - name: Pytest with coverage gate
+        run: pytest tests -q --cov=custom_components.sensoredlife --cov-fail-under=95
+
+  syntax-floor:
+    # The oldest supported HA (2024.12) runs Python 3.12 — make sure every
+    # shipped module still parses there, so a formatter/lint pass can never
+    # smuggle in newer-only syntax (e.g. PEP 758 unparenthesized except).
+    name: Syntax floor (Python 3.12)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile on the support floor
+        run: python -m compileall -q custom_components/
