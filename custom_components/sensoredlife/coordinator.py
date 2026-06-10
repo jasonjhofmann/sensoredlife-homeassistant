@@ -46,9 +46,10 @@ class SensoredLifeCoordinator(DataUpdateCoordinator[dict[str, Gateway]]):
             update_interval=DEFAULT_SCAN_INTERVAL,
         )
         # A dedicated session (own cookie jar) keeps the login XSRF cookie out
-        # of Home Assistant's shared session; closed when the entry unloads.
+        # of Home Assistant's shared session. HA owns its lifecycle (closed at
+        # shutdown) — calling session.close() ourselves is blocked by core's
+        # warn_use wrapper as of HA 2026.5+.
         session = async_create_clientsession(hass)
-        config_entry.async_on_unload(session.close)
         self.client = SensoredLifeClient(
             session,
             config_entry.data[CONF_USERNAME],
