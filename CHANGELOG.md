@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.4 — 2026-06-10
+
+Adjacent-sweep fixes — two small robustness gaps found auditing the 0.5.3
+string-coercion and login-flow changes.
+
+- **Fix (SPuck battery)**: `BatteryLevel` is now coerced like every other
+  reading (the API sends numbers as strings) — a string `"18"` previously
+  failed the `isinstance(int | float)` check and the battery silently
+  became None. Garbage (non-numeric or non-finite) still degrades to
+  None.
+- **Fix (API client)**: the devices fetch now logs in first if no user id
+  is cached yet, instead of relying on callers to have logged in — a cold
+  call can no longer build a devices URL containing a literal `None`.
+
 ## 0.5.3 — 2026-06-10
 
 Audit fixes — robustness against cloud glitches, plus privacy cleanups.

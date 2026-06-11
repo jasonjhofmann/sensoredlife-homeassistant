@@ -102,6 +102,28 @@ async def test_devices_client_error(
         await client.async_get_gateways()
 
 
+async def test_get_devices_cold_call_logs_in_first(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    devices_payload,
+) -> None:
+    """A cold _get_devices (no prior login) logs in instead of a 'None' URL."""
+    aioclient_mock.get(ROOT_URL)
+    aioclient_mock.post(LOGIN_URL, json=_token_body())
+    aioclient_mock.get(_devices_url(99999), json=devices_payload)
+    client = SensoredLifeClient(async_create_clientsession(hass), "u", "p")
+
+    payload = await client._get_devices()
+
+    assert isinstance(payload, list)
+    assert sum(1 for c in aioclient_mock.mock_calls if str(c[1]) == LOGIN_URL) == 1
+    # No request ever targeted the literal-None URL.
+    assert all(
+        str(c[1]).split("?")[0] != _devices_url("None")
+        for c in aioclient_mock.mock_calls
+    )
+
+
 async def test_force_update_success(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:

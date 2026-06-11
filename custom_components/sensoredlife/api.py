@@ -227,6 +227,10 @@ class SensoredLifeClient:
             raise SensoredLifeConnectionError(f"Force-update failed: {err}") from err
 
     async def _get_devices(self) -> Any:
+        if self._user_id is None:
+            # Structural guard: callers normally log in first, but never
+            # build a devices URL with a literal "None" user id.
+            await self.async_login()
         path = DEVICES_PATH.format(user_id=self._user_id)
         try:
             async with self._session.get(
