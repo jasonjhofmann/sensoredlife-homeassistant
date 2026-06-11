@@ -33,11 +33,17 @@ def _drop_sentinel(value: float | None, sentinels: tuple[float, ...]) -> float |
 
 
 def _to_float(value: Any) -> float | None:
-    """Coerce a value to a rounded float, or None if it isn't numeric."""
+    """Coerce a value to a finite rounded float, or None if it isn't numeric.
+
+    float() happily parses "inf"/"nan" strings, so non-finite values are
+    rejected here — otherwise they would propagate into temperature /
+    humidity / signal readings and SafeRange bounds.
+    """
     try:
-        return round(float(value), 2)
+        result = round(float(value), 2)
     except (TypeError, ValueError):
         return None
+    return result if isfinite(result) else None
 
 
 def _parse_ts(raw: Any) -> datetime | None:
@@ -92,16 +98,14 @@ class Spuck:
         temp = _drop_sentinel(temp, SPUCK_TEMP_SENTINELS)
         hum = _drop_sentinel(hum, SPUCK_HUMID_SENTINELS)
         # The API sends numbers as strings, so coerce like every other reading
-        # (a string "18" would otherwise silently parse to None). Non-finite
-        # values (float() accepts "inf"/"nan") stay garbage -> None.
+        # (a string "18" would otherwise silently parse to None). _to_float
+        # already rejects non-finite values, so int() is always safe here.
         battery = _to_float(raw.get("BatteryLevel"))
         return cls(
             spuck_id=str(raw.get("Id")),
             gateway_imei=gateway_imei,
             name=str(raw.get("Name") or raw.get("Id") or "SPuck"),
-            battery_level=int(battery)
-            if battery is not None and isfinite(battery)
-            else None,
+            battery_level=int(battery) if battery is not None else None,
             signal_strength=_to_float(raw.get("SignalStrength")),
             temperature=temp,
             temperature_range=SafeRange(t_lo, t_hi),
