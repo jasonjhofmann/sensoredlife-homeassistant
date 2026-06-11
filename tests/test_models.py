@@ -79,6 +79,30 @@ def test_temp_sentinel_99_9() -> None:
     assert spuck.battery_level == 11
 
 
+def test_string_battery_level_coerced() -> None:
+    """A string BatteryLevel (as the API sends numbers) coerces to int."""
+    gateways = parse_devices(
+        [
+            {
+                "Name": "Garage",
+                "IMEI": "333",
+                "LastRead": {},
+                "AlarmPoints": [],
+                "Peripherals": [
+                    {"Id": "CCCC", "Name": "String Batt", "BatteryLevel": "18"},
+                    {"Id": "DDDD", "Name": "Garbage Batt", "BatteryLevel": "inf"},
+                    {"Id": "EEEE", "Name": "No Batt", "BatteryLevel": None},
+                ],
+            }
+        ]
+    )
+    spucks = {s.name: s for s in gateways["333"].spucks}
+    assert spucks["String Batt"].battery_level == 18
+    # Garbage (non-numeric or non-finite) still degrades to None.
+    assert spucks["Garbage Batt"].battery_level is None
+    assert spucks["No Batt"].battery_level is None
+
+
 def test_out_of_range(devices_payload) -> None:
     """A reading outside its safe band reports in_safe_range False."""
     gateways = parse_devices(devices_payload)

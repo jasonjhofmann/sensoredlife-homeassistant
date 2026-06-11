@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from math import isfinite
 from typing import Any
 
 from .const import (
@@ -90,12 +91,17 @@ class Spuck:
         hum, h_lo, h_hi = _reading(raw.get("AlarmPoints"), "SP_HUMID")
         temp = _drop_sentinel(temp, SPUCK_TEMP_SENTINELS)
         hum = _drop_sentinel(hum, SPUCK_HUMID_SENTINELS)
-        battery = raw.get("BatteryLevel")
+        # The API sends numbers as strings, so coerce like every other reading
+        # (a string "18" would otherwise silently parse to None). Non-finite
+        # values (float() accepts "inf"/"nan") stay garbage -> None.
+        battery = _to_float(raw.get("BatteryLevel"))
         return cls(
             spuck_id=str(raw.get("Id")),
             gateway_imei=gateway_imei,
             name=str(raw.get("Name") or raw.get("Id") or "SPuck"),
-            battery_level=int(battery) if isinstance(battery, (int, float)) else None,
+            battery_level=int(battery)
+            if battery is not None and isfinite(battery)
+            else None,
             signal_strength=_to_float(raw.get("SignalStrength")),
             temperature=temp,
             temperature_range=SafeRange(t_lo, t_hi),
