@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from custom_components.sensoredlife.models import (
     SafeRange,
+    _to_float,
     parse_devices,
 )
 
@@ -246,3 +249,65 @@ def test_bad_values_coerce_to_none() -> None:
     assert g.battery_voltage is None
     assert g.last_report is None
     assert g.online is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "inf",
+        "-inf",
+        "nan",
+        "Infinity",
+        float("inf"),
+        float("-inf"),
+        float("nan"),
+    ],
+)
+def test_to_float_rejects_non_finite(value) -> None:
+    """Non-finite inputs (float() parses "inf"/"nan" strings) map to None."""
+    assert _to_float(value) is None
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("18", 18.0), (72.456, 72.46), (0, 0.0), (-3.5, -3.5)],
+)
+def test_to_float_accepts_finite(value, expected) -> None:
+    """Normal numeric inputs still coerce and round as before."""
+    assert _to_float(value) == expected
+
+
+def test_non_finite_readings_degrade_to_none() -> None:
+    """Non-finite cloud values never reach readings or range bounds."""
+    gateways = parse_devices(
+        [
+            {
+                "Name": "Haunted",
+                "IMEI": "444",
+                "BatteryVoltage": "nan",
+                "LastRead": {
+                    "Temperature": "inf",
+                    "Humidity": "nan",
+                    "Power": "-inf",
+                    "SignalStrength": float("nan"),
+                },
+                "AlarmPoints": [
+                    {
+                        "PeripheralId": None,
+                        "DeviceSensor": {"SensorType": "TEMP"},
+                        "RangeMin": "-inf",
+                        "RangeMax": "inf",
+                    },
+                ],
+                "Peripherals": [],
+            }
+        ]
+    )
+    g = gateways["444"]
+    assert g.temperature is None
+    assert g.humidity is None
+    assert g.power_on is None
+    assert g.signal_strength is None
+    assert g.battery_voltage is None
+    assert g.temperature_range.minimum is None
+    assert g.temperature_range.maximum is None

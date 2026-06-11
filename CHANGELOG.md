@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.5 — 2026-06-10
+
+- **Fix (parsing)**: `_to_float` now rejects non-finite values itself
+  (`math.isfinite` → None) — `float()` happily parses `"inf"`/`"nan"`
+  strings, so such garbage could previously propagate into temperature,
+  humidity, signal-strength and battery-voltage readings and into
+  `SafeRange` bounds. The 0.5.4 hardening covered only the SPuck
+  battery `int()` path; that special-casing is now folded into
+  `_to_float` so every coerced float is finite.
+
 ## 0.5.4 — 2026-06-10
 
 Adjacent-sweep fixes — two small robustness gaps found auditing the 0.5.3
