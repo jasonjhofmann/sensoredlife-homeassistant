@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.6 — 2026-08-24
 
 - **Now in the HACS default repository.** README install instructions no
   longer tell users to add a custom repository; added a My Home Assistant
