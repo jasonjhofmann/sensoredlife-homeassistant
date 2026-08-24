@@ -5,6 +5,12 @@
 - **Now in the HACS default repository.** README install instructions no
   longer tell users to add a custom repository; added a My Home Assistant
   "open in HACS" button and switched the badge to HACS Default.
+- **README rewrite.** Added the MarCELL logo (light and dark), restructured the
+  page around tasks following Google's developer documentation style guide, and
+  documented behaviors that were only in the code: the 3-consecutive-poll device
+  prune, the two-failure reauth damping, the redaction of location fields in
+  diagnostics, and the generic "MarCELL" device model (the cloud exposes no tier
+  field). Added the minimum Home Assistant version and a license badge.
 
 ## 0.5.5 — 2026-06-10
 

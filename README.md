@@ -1,208 +1,256 @@
 # SensoredLife (MarCELL) for Home Assistant
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/jasonjhofmann/sensoredlife-homeassistant/main/custom_components/sensoredlife/brand/dark_logo@2x.png">
+  <img src="https://raw.githubusercontent.com/jasonjhofmann/sensoredlife-homeassistant/main/custom_components/sensoredlife/brand/logo@2x.png" alt="MarCELL" width="200">
+</picture>
+
 [![release](https://img.shields.io/github/v/release/jasonjhofmann/sensoredlife-homeassistant?label=release&color=blue)](https://github.com/jasonjhofmann/sensoredlife-homeassistant/releases)
 [![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![validate](https://github.com/jasonjhofmann/sensoredlife-homeassistant/actions/workflows/validate.yml/badge.svg)](https://github.com/jasonjhofmann/sensoredlife-homeassistant/actions/workflows/validate.yml)
 
-A custom integration that brings [SensoredLife](https://www.sensoredlife.com)
-**MarCELL** cellular temperature / humidity / power monitors — and their wireless
-**SPuck** sub-probes — into Home Assistant.
+Read [SensoredLife](https://www.sensoredlife.com) **MarCELL** cellular
+temperature, humidity, and power monitors into Home Assistant, along with the
+wireless **SPuck** sub-probes paired to them.
 
-These units report over the cellular network to the SensoredLife cloud; there is
-no local API. This integration polls the SensoredLife cloud **cache** (the same
-data the website shows). It **never** triggers the paid on-demand "Update"
-button on its own, so routine polling does not consume your account's
+MarCELL units report over the cellular network to the SensoredLife cloud, and
+there's no local API. This integration polls the cloud cache, which holds the
+same data the website shows. It never presses the paid on-demand **Update**
+button on its own, so routine polling doesn't spend your account's
 instant-update credits.
 
 > Unofficial. Not affiliated with or endorsed by SensoredLife, LLC.
 
+## Before you begin
+
+You need the following:
+
+- Home Assistant 2024.12.0 or later.
+- A SensoredLife account with at least one MarCELL gateway on it.
+- The email address and password you use to sign in at sensoredlife.com. The
+  integration authenticates with the website login. There's no separate API
+  key.
+
 ## Supported devices
 
-- **MarCELL** cellular gateways, including MarCELL PRO (temperature / humidity /
-  mains-power monitor with a backup battery). Each gateway is one Home Assistant
-  device.
-- **SPuck** wireless sub-probes paired to a gateway, as child devices:
-  - Temperature/humidity SPucks (e.g. fridge/freezer/cellar probes).
-  - Leak/other SPucks with no climate element (e.g. "Leak Puck") still appear
-    with a Battery sensor; their temperature/humidity report *Unavailable*.
-
-Any number of gateways and SPucks on the account are supported, and devices
-added to (or removed from) the account later are picked up automatically without
+The integration reads every gateway and probe on the account. It doesn't need a
+model list, and it picks up devices you add or remove later without you
 re-adding the integration.
 
-## Supported functionality
+- **MarCELL cellular gateways**, one Home Assistant device each. The cloud API
+  exposes no model or tier field, so every gateway reports its model as
+  "MarCELL" whether or not it's a PRO.
+- **SPuck wireless sub-probes**, as child devices of the gateway they're paired
+  to. Temperature and humidity SPucks report both readings. A SPuck with no
+  climate element, such as a leak puck, still gets a battery sensor, and its
+  temperature and humidity entities report `unavailable`.
 
-Each MarCELL gateway becomes a Home Assistant **device** with:
+## Entities
 
-| Entity | Notes |
-| --- | --- |
-| `sensor` Temperature | °F, with `safe_minimum` / `safe_maximum` / `in_safe_range` attributes |
-| `sensor` Humidity | %, with the same safe-range attributes |
-| `binary_sensor` Power | `plug` — on = mains, off = running on backup battery |
-| `binary_sensor` Online | `connectivity` — off when the device hasn't reported in >9 h |
-| `sensor` Signal strength | diagnostic (disabled by default) |
-| `sensor` Backup battery | gateway internal cell voltage, diagnostic |
-| `sensor` Last read | timestamp of the most recent cloud read, diagnostic |
-| `button` Request reading | on-demand "call in now" (the website's **Update** button) |
+Each MarCELL gateway gets:
 
-Each wireless **SPuck** becomes a child device (linked to its gateway) with
-**Temperature**, **Humidity**, **Battery (%)**, and a **Last call-in** timestamp
-(when the probe last actually reported to its gateway — so a SPuck that has gone
-silent is obvious instead of echoing a stale value). A SPuck that has dropped
-offline (the cloud returns its `999.9 °F` / `99.9 %` sentinels) reports as
-**Unavailable** rather than a bogus reading.
+| Entity | Domain | Notes |
+| --- | --- | --- |
+| Temperature | `sensor` | Has `safe_minimum`, `safe_maximum`, and `in_safe_range` attributes taken from the account's alarm bounds |
+| Humidity | `sensor` | Same three attributes |
+| Power | `binary_sensor` | `plug` class. `on` means mains power, `off` means the gateway is running on its backup battery |
+| Online | `binary_sensor` | `connectivity` class. Goes `off` when the gateway hasn't reported for more than 9 hours |
+| Signal strength | `sensor` | Diagnostic, disabled by default |
+| Backup battery | `sensor` | Internal cell voltage. Diagnostic |
+| Last read | `sensor` | Timestamp of the most recent cloud read. Diagnostic |
+| Request reading | `button` | Forces an immediate call-in. Spends a credit |
 
-## Data updates
+Each SPuck gets:
 
-The integration makes a single authenticated request that returns every gateway
-and SPuck at once, polled **every 15 minutes**. This reads the cloud **cache**.
+| Entity | Domain | Notes |
+| --- | --- | --- |
+| Temperature | `sensor` | Reports `unavailable` on a puck with no climate element |
+| Humidity | `sensor` | Reports `unavailable` on a puck with no climate element |
+| Battery | `sensor` | Percentage. Diagnostic |
+| Last call-in | `sensor` | When the probe last reported to its gateway. Diagnostic |
 
-> **How fresh is the data?** A MarCELL stores readings hourly (every 30 min on
-> Pro) but only **uploads to the cloud every 8 hours (every 4 hours on Pro)**
-> unless someone is *actively viewing* the account in the SensoredLife web app —
-> which this integration does not do. So a value in Home Assistant can be several
-> hours old; the 15-minute poll just keeps HA in step with whatever the device
-> last uploaded. Use the **Last read** timestamp and the **Online** sensor to
-> judge freshness.
+The 9-hour offline threshold sits just above the slowest normal upload cadence,
+so a healthy non-PRO gateway on schedule never trips it.
 
-The **Request reading** button forces a gateway to call in immediately (the same
-as the website's *Update* button), then refreshes once the cloud catches up.
-Each press spends one of your account's paid **instant-update credits** —
-routine 15-minute polling never does.
+A SPuck that has dropped offline or gone out of RF range reports `unavailable`
+rather than a bogus value. The cloud signals this with `999.9 °F` and `99.9 %`
+sentinels, which the integration matches exactly, so a genuine reading near
+those values still comes through.
 
-## Use cases
+**Last call-in** is the entity that tells you a probe has gone quiet. Without
+it, a silent SPuck keeps echoing whatever it last reported.
 
-- **Wine cellar / cold storage** — alert when a cellar SPuck leaves its safe
-  temperature/humidity band.
-- **Fridge & freezer cold-chain** — catch a freezer warming up, or a probe that
-  has gone offline (a silent dead sensor is the real danger).
-- **Power-outage detection** — the Power binary sensor flips to *off* when a
-  monitored building loses mains and the gateway runs on its backup battery.
-- **Freeze / overheat protection** — notify when a remote building's temperature
-  approaches a damaging range.
+## Add the integration
 
-## Examples
+1. Go to **Settings > Devices & services > Add integration** and select
+   **SensoredLife (MarCELL)**.
+2. Enter the email address and password you use at sensoredlife.com.
+3. Click **Submit**.
 
-Notify when a SPuck leaves its safe temperature range (using the built-in
-`in_safe_range` attribute):
+Home Assistant validates the credentials against the cloud before it creates
+the entry.
 
-```yaml
-automation:
-  - alias: "Wine cellar out of range"
-    trigger:
-      - trigger: state
-        entity_id: sensor.chest_freezer_temperature
-        attribute: in_safe_range
-        to: false
-    action:
-      - action: notify.mobile_app_phone
-        data:
-          title: "Cold-chain alert"
-          message: >-
-            {{ state_attr(trigger.entity_id, 'friendly_name') }} is
-            {{ states(trigger.entity_id) }}°, outside its safe range.
-```
+If the password stops working later, Home Assistant starts a reauthentication
+flow on its own, so you don't need to delete and re-add the integration. One
+failed auth after a working poll is treated as an ordinary failed update; it
+takes two consecutive failures to trigger the prompt, which keeps a transient
+CSRF rejection from nagging you.
 
-Alert on a power outage at a monitored building:
+To change the credentials yourself, select **⋮ > Reconfigure** on the config
+entry.
 
-```yaml
-automation:
-  - alias: "Warehouse lost power"
-    trigger:
-      - trigger: state
-        entity_id: binary_sensor.warehouse_power
-        to: "off"
-        for: "00:02:00"
-    action:
-      - action: notify.mobile_app_phone
-        data:
-          message: "Warehouse is running on backup battery (mains power lost)."
-```
+## Install
 
-Warn when a gateway stops reporting (stale / offline):
+### Install with HACS
 
-```yaml
-automation:
-  - alias: "MarCELL gateway offline"
-    trigger:
-      - trigger: state
-        entity_id: binary_sensor.wine_cellar_online
-        to: "off"
-        for: "00:30:00"
-    action:
-      - action: notify.mobile_app_phone
-        data:
-          message: "Wine Cellar hasn't reported to the cloud in a while."
-```
-
-## Installation
-
-### HACS (recommended)
-
-SensoredLife is in the **HACS default repository** — no custom repository
-needed.
+SensoredLife is in the HACS default repository, so you don't need to add a
+custom repository.
 
 1. In HACS, search for **SensoredLife (MarCELL)** and download it.
 2. Restart Home Assistant.
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jasonjhofmann&repository=sensoredlife-homeassistant&category=integration)
 
-### Manual
+### Install manually
 
-Copy `custom_components/sensoredlife/` into your Home Assistant
-`config/custom_components/` directory and restart.
+1. Copy `custom_components/sensoredlife/` into your Home Assistant
+   `config/custom_components/` directory.
+2. Restart Home Assistant.
 
-## Configuration
+## How data is updated
 
-Settings → **Devices & Services** → **Add Integration** → **SensoredLife
-(MarCELL)**, then enter:
+The integration makes one authenticated request every 15 minutes that returns
+every gateway and SPuck at once. That request reads the cloud cache.
 
-| Parameter | Description |
-| --- | --- |
-| **Username** | The email address you use to sign in at sensoredlife.com. |
-| **Password** | Your SensoredLife account password. |
+### How fresh the data actually is
 
-Credentials are validated against the cloud before the entry is created.
+A MarCELL stores a reading hourly, or every 30 minutes on a PRO. It only
+uploads to the cloud every 8 hours, or every 4 hours on a PRO, unless somebody
+is actively viewing the account in the SensoredLife web app. This integration
+doesn't pretend to be an active viewer.
 
-- If the password is rejected later, Home Assistant starts a
-  **re-authentication** flow automatically — no need to delete and re-add.
-- To change the account credentials yourself, use **Reconfigure** on the
-  integration's ⋮ menu.
+So a value in Home Assistant can be several hours old. The 15-minute poll keeps
+Home Assistant in step with whatever the device last uploaded, and nothing
+more. Use the **Last read** timestamp and the **Online** sensor to judge how
+current a value is.
 
-## Removal
+### Force a fresh reading
 
-Settings → **Devices & Services** → **SensoredLife (MarCELL)** → ⋮ → **Delete**.
-No credentials or files are left behind.
+The **Request reading** button tells a gateway to call in immediately, the same
+as the **Update** button on the website. The integration re-polls about 20
+seconds later, once the cloud has caught up.
 
-## Known limitations
+Each press spends one of your account's paid instant-update credits. Routine
+polling never does.
 
-- **Cloud-only.** There is no local API; the integration depends on the
+### Devices that come and go
+
+A device has to be missing from three consecutive polls before the integration
+removes it from the registry, so one partial cloud response can't wipe out your
+devices. If a removed device reappears on the account, its entities come back
+on the next poll without a restart.
+
+## Automation examples
+
+Notify when a SPuck leaves its safe temperature range, using the
+`in_safe_range` attribute:
+
+```yaml
+automation:
+  - alias: "Wine cellar out of range"
+    triggers:
+      - trigger: state
+        entity_id: sensor.chest_freezer_temperature
+        attribute: in_safe_range
+        to: false
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          title: "Cold-chain alert"
+          message: >-
+            {{ state_attr(trigger.entity_id, 'friendly_name') }} is
+            {{ states(trigger.entity_id) }}, outside its safe range.
+```
+
+Notify on a power outage at a monitored building:
+
+```yaml
+automation:
+  - alias: "Warehouse lost power"
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.warehouse_power
+        to: "off"
+        for: "00:02:00"
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          message: "Warehouse is running on backup battery. Mains power is out."
+```
+
+Notify when a gateway stops reporting:
+
+```yaml
+automation:
+  - alias: "MarCELL gateway offline"
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.wine_cellar_online
+        to: "off"
+        for: "00:30:00"
+    actions:
+      - action: notify.mobile_app_phone
+        data:
+          message: "Wine Cellar hasn't reported to the cloud in a while."
+```
+
+## Limitations
+
+- **Cloud-only.** There's no local API, so the integration depends on the
   SensoredLife cloud and your internet connection.
-- **Not real-time.** Values come from the cloud cache, and a device only uploads
-  every **8 h (4 h on Pro)** when no one is actively viewing the account — so a
-  reading can be several hours old. Use **Request reading** for an immediate
-  value (costs a credit).
-- **Instant-update credits.** The Request-reading button consumes one of the
-  account's paid credits per press.
-- **Temperature is reported in °F** by the cloud; Home Assistant converts it to
-  your configured unit for display.
-- Some gateways have no humidity element and report `0 %`.
+- **Not real-time.** Values come from the cloud cache, and a device uploads
+  only every 8 hours, or 4 on a PRO, when nobody is viewing the account. A
+  reading can be hours old. Use **Request reading** for an immediate value.
+- **Credits.** Each **Request reading** press costs one paid instant-update
+  credit.
+- **Fahrenheit at the source.** The cloud reports temperature in °F. Home
+  Assistant converts it to your configured unit for display.
+- **No humidity element on some gateways.** Those report `0 %`.
 
-## Troubleshooting
+## Remove the integration
 
-- **"Invalid username or password"** when adding — confirm the same credentials
-  work at [sensoredlife.com](https://www.sensoredlife.com). The integration uses
-  the website login, not a separate API key.
-- **Entities show *Unavailable*** — a coordinator poll failed (cloud
-  unreachable) or, for a SPuck, the probe is offline / out of RF range of its
-  gateway. Check the gateway's **Online** binary sensor and **Last read** time.
-- **Re-authentication prompt** — your SensoredLife password changed; enter the
-  new one when prompted.
-- **Download diagnostics** (integration page → ⋮ → Download diagnostics) to
-  see parsed gateway/SPuck data, update health, and the last error —
-  credentials and device identifiers are redacted.
+Go to **Settings > Devices & services > SensoredLife (MarCELL)** and select
+**⋮ > Delete**. No credentials or files are left behind.
 
-Enable debug logging:
+## Troubleshoot
+
+### "Invalid username or password" when adding the integration
+
+Confirm the same credentials work at
+[sensoredlife.com](https://www.sensoredlife.com). The integration uses the
+website login, so if the website rejects them, so will Home Assistant.
+
+### Entities show `unavailable`
+
+Either a coordinator poll failed because the cloud was unreachable, or a SPuck
+is offline or out of RF range of its gateway. Check the gateway's **Online**
+binary sensor and its **Last read** timestamp to tell the two apart.
+
+### A reauthentication prompt appears
+
+Your SensoredLife password changed. Enter the new one when prompted.
+
+### Download diagnostics
+
+Go to the integration page and select **⋮ > Download diagnostics**. The
+snapshot shows the parsed gateway and SPuck data, update health, and the last
+error. Credentials, device identifiers, and location fields are redacted.
+
+### Turn on debug logging
+
+Add the following to `configuration.yaml` and restart. To change the level
+without restarting, call the `logger.set_level` action instead.
 
 ```yaml
 logger:
@@ -212,16 +260,29 @@ logger:
 
 ## Quality scale
 
-Targets the **Platinum** tier of the Home Assistant Integration Quality Scale.
-See [`custom_components/sensoredlife/quality_scale.yaml`](custom_components/sensoredlife/quality_scale.yaml)
-for the per-rule status (module test coverage is ≥95%, `mypy --strict` clean).
+The integration targets the Platinum tier of the Home Assistant Integration
+Quality Scale. See
+[`custom_components/sensoredlife/quality_scale.yaml`](custom_components/sensoredlife/quality_scale.yaml)
+for per-rule status. Coverage is enforced at 95% in CI, and `mypy --strict` is
+clean.
 
-## Development
+## Contribute
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) — architecture tour, project
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture tour, the project
 invariants (XSRF session isolation, sentinel handling, identifier redaction),
-quality gates, and the release process.
+the quality gates, and the release process.
 
 ## License
 
-[MIT](LICENSE)
+MIT. See [LICENSE](LICENSE).
+
+The MarCELL logo is bundled at `custom_components/sensoredlife/brand/` and
+served through Home Assistant's Brands Proxy API. "MarCELL" and "SensoredLife"
+are trademarks of SensoredLife, LLC.
+
+## Related projects
+
+- [aranet-cloud-homeassistant](https://github.com/jasonjhofmann/aranet-cloud-homeassistant)
+  reads Aranet Cloud sensors into Home Assistant.
+- [visiblair-homeassistant](https://github.com/jasonjhofmann/visiblair-homeassistant)
+  reads VisiblAir air-quality sensors into Home Assistant.
