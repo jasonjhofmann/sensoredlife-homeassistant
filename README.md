@@ -1,7 +1,7 @@
 # SensoredLife (MarCELL) for Home Assistant
 
 [![release](https://img.shields.io/github/v/release/jasonjhofmann/sensoredlife-homeassistant?label=release&color=blue)](https://github.com/jasonjhofmann/sensoredlife-homeassistant/releases)
-[![hacs](https://img.shields.io/badge/HACS-custom-orange.svg)](https://hacs.xyz)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz/)
 [![validate](https://github.com/jasonjhofmann/sensoredlife-homeassistant/actions/workflows/validate.yml/badge.svg)](https://github.com/jasonjhofmann/sensoredlife-homeassistant/actions/workflows/validate.yml)
 
 A custom integration that brings [SensoredLife](https://www.sensoredlife.com)
@@ -137,12 +137,15 @@ automation:
 
 ## Installation
 
-### HACS (custom repository)
+### HACS (recommended)
 
-1. HACS → **Integrations** → ⋮ → **Custom repositories**.
-2. Add `https://github.com/jasonjhofmann/sensoredlife-homeassistant`, category
-   **Integration**.
-3. Install **SensoredLife (MarCELL)** and restart Home Assistant.
+SensoredLife is in the **HACS default repository** — no custom repository
+needed.
+
+1. In HACS, search for **SensoredLife (MarCELL)** and download it.
+2. Restart Home Assistant.
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jasonjhofmann&repository=sensoredlife-homeassistant&category=integration)
 
 ### Manual
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- **Now in the HACS default repository.** README install instructions no
+  longer tell users to add a custom repository; added a My Home Assistant
+  "open in HACS" button and switched the badge to HACS Default.
+
 ## 0.5.5 — 2026-06-10
 
 - **Fix (parsing)**: `_to_float` now rejects non-finite values itself
