@@ -24,6 +24,20 @@ from custom_components.sensoredlife.api import (
 from custom_components.sensoredlife.const import DOMAIN, FORCE_UPDATE_SETTLE
 
 
+def _get_device(
+    registry: dr.DeviceRegistry, imei: str, entry: MockConfigEntry
+) -> dr.DeviceEntry | None:
+    """Per-entry device lookup that works on every supported test harness.
+
+    HA 2026.8 added ``async_get_device_by_identifier`` and HA dev hard-errors
+    the old ``async_get_device`` when called from test code; the Python 3.13
+    CI leg resolves an older harness that predates the new API, so probe.
+    """
+    if hasattr(registry, "async_get_device_by_identifier"):
+        return registry.async_get_device_by_identifier((DOMAIN, imei), entry.entry_id)
+    return registry.async_get_device(identifiers={(DOMAIN, imei)})
+
+
 async def _setup(hass: HomeAssistant, entry: MockConfigEntry) -> None:
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -65,12 +79,12 @@ async def test_devices_registered(
     await _setup(hass, mock_config_entry)
     registry = dr.async_get(hass)
 
-    gateway = registry.async_get_device(identifiers={(DOMAIN, "350000000000001")})
+    gateway = _get_device(registry, "350000000000001", mock_config_entry)
     assert gateway is not None
     # Generic family name — the API exposes no model/tier indicator.
     assert gateway.model == "MarCELL"
 
-    spuck = registry.async_get_device(identifiers={(DOMAIN, "AAAA0002")})
+    spuck = _get_device(registry, "AAAA0002", mock_config_entry)
     assert spuck is not None
     assert spuck.via_device_id == gateway.id
 
@@ -258,15 +272,15 @@ async def test_stale_devices(
     """A gateway missing from 3 consecutive polls is dropped from the registry."""
     await _setup(hass, mock_config_entry)
     registry = dr.async_get(hass)
-    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+    assert _get_device(registry, "350000000000002", mock_config_entry)
 
     reduced = [d for d in devices_payload if d["IMEI"] != "350000000000002"]
     for _ in range(3):
         await _refresh_with(hass, mock_client, mock_config_entry, reduced)
 
-    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")}) is None
+    assert _get_device(registry, "350000000000002", mock_config_entry) is None
     # A surviving gateway stays.
-    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000001")})
+    assert _get_device(registry, "350000000000001", mock_config_entry)
 
 
 async def test_transient_absence_not_pruned(
@@ -282,14 +296,14 @@ async def test_transient_absence_not_pruned(
     reduced = [d for d in devices_payload if d["IMEI"] != "350000000000002"]
     for _ in range(2):
         await _refresh_with(hass, mock_client, mock_config_entry, reduced)
-        assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+        assert _get_device(registry, "350000000000002", mock_config_entry)
 
     # The full roster returns — the miss streak resets…
     await _refresh_with(hass, mock_client, mock_config_entry, devices_payload)
     # …so two MORE misses still don't reach the 3-consecutive threshold.
     for _ in range(2):
         await _refresh_with(hass, mock_client, mock_config_entry, reduced)
-    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+    assert _get_device(registry, "350000000000002", mock_config_entry)
     assert hass.states.get("sensor.warehouse_temperature") is not None
 
 
@@ -307,12 +321,12 @@ async def test_pruned_device_reappears(
     reduced = [d for d in devices_payload if d["IMEI"] != "350000000000002"]
     for _ in range(3):
         await _refresh_with(hass, mock_client, mock_config_entry, reduced)
-    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")}) is None
+    assert _get_device(registry, "350000000000002", mock_config_entry) is None
     assert hass.states.get("sensor.warehouse_temperature") is None
 
     # The gateway reappears in the account — no restart needed.
     await _refresh_with(hass, mock_client, mock_config_entry, devices_payload)
-    assert registry.async_get_device(identifiers={(DOMAIN, "350000000000002")})
+    assert _get_device(registry, "350000000000002", mock_config_entry)
     temp = hass.states.get("sensor.warehouse_temperature")
     assert temp is not None
     assert temp.state != STATE_UNAVAILABLE

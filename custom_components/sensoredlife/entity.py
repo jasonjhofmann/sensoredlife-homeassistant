@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
+from typing import Any, cast
 
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -127,10 +128,18 @@ class SpuckEntity(CoordinatorEntity[SensoredLifeCoordinator]):
     def device_info(self) -> DeviceInfo:
         """Device registry entry for the SPuck, linked to its gateway."""
         spuck = self.spuck
-        return DeviceInfo(
+        info = DeviceInfo(
             identifiers={(DOMAIN, self._spuck_id)},
             manufacturer=MANUFACTURER,
             model="SPuck",
             name=spuck.name if spuck else self._spuck_id,
-            via_device=(DOMAIN, self._imei),
         )
+        # ``via_device`` left the DeviceInfo TypedDict on HA dev (removal
+        # 2027.8; custom integrations get a log, not an error, until then).
+        # Its replacement ``via_device_id`` needs the gateway's registry id
+        # and is only accepted from HA 2026.8, but this integration's floor
+        # is 2024.12 — so keep passing ``via_device`` at runtime, hidden
+        # from the (dev-pinned) type checker. Revisit when the floor
+        # reaches 2026.8: [[task-list]] 2026-08-27 entry.
+        cast(dict[str, Any], info)["via_device"] = (DOMAIN, self._imei)
+        return info
