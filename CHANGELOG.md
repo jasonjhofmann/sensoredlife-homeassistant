@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **CI: mypy now type-checks against HA 2025.4.0 (`homeassistant==2025.4.0`),
+  the oldest release this integration can load on.** HA 2026.9 moved core from
+  voluptuous to probatio, and HA 2026.10 retyped schema arguments to match, so
+  mypy against the newest HA flagged the voluptuous schemas older releases
+  need; the nightly Validate run had failed on this every day since
+  2026-10-02. Typing only: HA still accepts voluptuous schemas at runtime, and
+  the test job still runs on the newest HA. No integration code changes.
+- **Known issue: the declared floor is wrong.** `hacs.json` and the README say
+  HA 2024.12.0, but `AddConfigEntryEntitiesCallback`, imported at module level
+  since v0.1.0, only exists from HA 2025.3, so the integration cannot load on
+  2024.12 through 2025.2. Not yet corrected.
+
 ## 0.5.7 — 2026-08-27
 
 - **Repository CI/workflow hardening only — no integration code changes.**

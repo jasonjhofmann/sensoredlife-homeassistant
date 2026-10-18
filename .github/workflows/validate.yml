@@ -50,8 +50,22 @@ jobs:
       - name: Ruff format check
         run: ruff format --check custom_components tests
 
+      - uses: astral-sh/setup-uv@v7
+
+      # Type-checked against the OLDEST HA this integration can load on, not the
+      # newest release: HA 2026.9 moved core to probatio and 2026.10 retyped schema
+      # arguments as probatio.Schema, so mypy against the latest HA rejects the
+      # voluptuous schemas older releases need. HA still accepts voluptuous schemas
+      # at runtime; the tests job covers runtime on the newest HA.
+      # NOTE: hacs.json says 2024.12.0, but AddConfigEntryEntitiesCallback (imported
+      # at module level) only exists from HA 2025.3, and 2025.3.x no longer installs
+      # (it pins a yanked aiohttp), so 2025.4.0 is the oldest version that can be
+      # checked. Correcting the declared floor is an open item.
       - name: Mypy (strict via pyproject)
-        run: mypy custom_components/sensoredlife/
+        run: >-
+          uv run --no-project --python 3.13 --prerelease=allow
+          --with mypy --with homeassistant==2025.4.0 --with voluptuous
+          mypy custom_components/sensoredlife/
 
   tests:
     name: Tests (Python ${{ matrix.python-version }})
