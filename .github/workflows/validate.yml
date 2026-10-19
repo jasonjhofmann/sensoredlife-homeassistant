@@ -32,7 +32,7 @@ jobs:
         uses: home-assistant/actions/hassfest@master
 
   lint:
-    name: Typing & lint
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -49,23 +49,6 @@ jobs:
 
       - name: Ruff format check
         run: ruff format --check custom_components tests
-
-      - uses: astral-sh/setup-uv@v7
-
-      # Type-checked against the OLDEST HA this integration can load on, not the
-      # newest release: HA 2026.9 moved core to probatio and 2026.10 retyped schema
-      # arguments as probatio.Schema, so mypy against the latest HA rejects the
-      # voluptuous schemas older releases need. HA still accepts voluptuous schemas
-      # at runtime; the tests job covers runtime on the newest HA.
-      # NOTE: hacs.json says 2024.12.0, but AddConfigEntryEntitiesCallback (imported
-      # at module level) only exists from HA 2025.3, and 2025.3.x no longer installs
-      # (it pins a yanked aiohttp), so 2025.4.0 is the oldest version that can be
-      # checked. Correcting the declared floor is an open item.
-      - name: Mypy (strict via pyproject)
-        run: >-
-          uv run --no-project --python 3.13 --prerelease=allow
-          --with mypy --with homeassistant==2025.4.0 --with voluptuous
-          mypy custom_components/sensoredlife/
 
   tests:
     name: Tests (Python ${{ matrix.python-version }})
@@ -87,17 +70,98 @@ jobs:
         run: pytest tests -q --cov=custom_components.sensoredlife --cov-fail-under=95
 
   syntax-floor:
-    # The oldest supported HA (2024.12) runs Python 3.12 — make sure every
+    # The oldest supported HA (2025.3) runs Python 3.13 — make sure every
     # shipped module still parses there, so a formatter/lint pass can never
     # smuggle in newer-only syntax (e.g. PEP 758 unparenthesized except).
-    name: Syntax floor (Python 3.12)
+    name: Syntax floor (Python 3.13)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Compile on the support floor
         run: python -m compileall -q custom_components/
+
+  # Proves the floor declared in hacs.json is real. The other gates resolve
+  # the LATEST Home Assistant, so code could start depending on a newer API
+  # while HACS keeps offering the release to users on the declared floor.
+  # Reads the floor from hacs.json and the integration's own requirements
+  # from manifest.json, then imports every module against that exact release.
+  #
+  # This is also the only mypy run. HA 2026.9 moved core to probatio and
+  # 2026.10 retyped schema arguments as probatio.Schema, so mypy against the
+  # latest HA rejects the voluptuous schemas older releases need (probatio
+  # does not exist before 2026.9). HA still accepts voluptuous schemas at
+  # runtime, and the tests job covers runtime on the newest HA.
+  minimum-supported-ha:
+    name: Minimum supported HA (hacs.json floor)
+    runs-on: ubuntu-latest
+    env:
+      # Must satisfy the floor's requires-python (HA 2025.3 = Python 3.13).
+      FLOOR_PYTHON: "3.13"
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      # Recreates the environment the floor release actually shipped into.
+      # Every package resolves as of the floor's PyPI release date (+1 day),
+      # via UV_EXCLUDE_NEWER: HA pins its direct dependencies but not theirs,
+      # and a fresh resolve drifts (HA 2025.6 pins aiodns 3.4.0 but not
+      # pycares, and pycares 5 removed an API aiodns uses). HA's own exact
+      # pins are also restated as direct requirements, because uv installs a
+      # since-yanked version only when it is pinned directly (HA 2025.3.0
+      # pins aiohttp 3.11.13, yanked later). An integration requirement
+      # released after the floor would need --exclude-newer-package.
+      - name: Pin the floor and the integration's requirements
+        run: |
+          python3 - <<'PY'
+          import datetime as dt
+          import json
+          import os
+          import urllib.request
+          floor = json.load(open("hacs.json"))["homeassistant"]
+          reqs = json.load(open("custom_components/sensoredlife/manifest.json"))["requirements"]
+          url = f"https://pypi.org/pypi/homeassistant/{floor}/json"
+          meta = json.load(urllib.request.urlopen(url))
+          released = min(
+              dt.datetime.fromisoformat(u["upload_time_iso_8601"].replace("Z", "+00:00"))
+              for u in meta["urls"]
+          )
+          cutoff = (released + dt.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
+          pins = [
+              r for r in meta["info"]["requires_dist"] or [] if "==" in r and ";" not in r
+          ]
+          with open("floor-requirements.txt", "w") as f:
+              lines = [f"homeassistant=={floor}", *pins, "voluptuous", *reqs]
+              f.write("\n".join(lines) + "\n")
+          with open(os.environ["GITHUB_ENV"], "a") as f:
+              f.write(f"UV_EXCLUDE_NEWER={cutoff}\n")
+          print(f"Declared Home Assistant floor: {floor} (released {released:%Y-%m-%d}); "
+                f"{len(pins)} HA pins restated; requirements: {reqs}; "
+                f"resolving as of {cutoff}")
+          PY
+
+      - name: Import every module against the floor
+        run: |
+          uv run --no-project --python "$FLOOR_PYTHON" \
+            --with-requirements floor-requirements.txt \
+            python -c "
+          import importlib, pkgutil
+          import custom_components.sensoredlife as pkg
+          names = [m.name for m in pkgutil.iter_modules(pkg.__path__)]
+          for name in names:
+              importlib.import_module(f'{pkg.__name__}.{name}')
+          print(f'{len(names)} modules import on the declared floor')
+          "
+
+      - name: Mypy (strict) against the floor
+        run: |
+          uv run --no-project --python "$FLOOR_PYTHON" \
+            --with-requirements floor-requirements.txt \
+            --with mypy \
+            mypy custom_components/sensoredlife/

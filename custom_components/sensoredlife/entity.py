@@ -138,7 +138,7 @@ class SpuckEntity(CoordinatorEntity[SensoredLifeCoordinator]):
         # 2027.8; custom integrations get a log, not an error, until then).
         # Its replacement ``via_device_id`` needs the gateway's registry id
         # and is only accepted from HA 2026.8, but this integration's floor
-        # is 2024.12 — so keep passing ``via_device`` at runtime, hidden
+        # is 2025.3 — so keep passing ``via_device`` at runtime, hidden
         # from the (dev-pinned) type checker. Revisit when the floor
         # reaches 2026.8: [[task-list]] 2026-08-27 entry.
         cast(dict[str, Any], info)["via_device"] = (DOMAIN, self._imei)
