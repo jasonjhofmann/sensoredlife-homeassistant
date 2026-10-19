@@ -32,7 +32,7 @@ jobs:
         uses: home-assistant/actions/hassfest@master
 
   lint:
-    name: Typing & lint
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -49,23 +49,6 @@ jobs:
 
       - name: Ruff format check
         run: ruff format --check custom_components tests
-
-      - uses: astral-sh/setup-uv@v7
-
-      # Type-checked against the OLDEST HA this integration can load on, not the
-      # newest release: HA 2026.9 moved core to probatio and 2026.10 retyped schema
-      # arguments as probatio.Schema, so mypy against the latest HA rejects the
-      # voluptuous schemas older releases need. HA still accepts voluptuous schemas
-      # at runtime; the tests job covers runtime on the newest HA.
-      # NOTE: hacs.json says 2024.12.0, but AddConfigEntryEntitiesCallback (imported
-      # at module level) only exists from HA 2025.3, and 2025.3.x no longer installs
-      # (it pins a yanked aiohttp), so 2025.4.0 is the oldest version that can be
-      # checked. Correcting the declared floor is an open item.
-      - name: Mypy (strict via pyproject)
-        run: >-
-          uv run --no-project --python 3.13 --prerelease=allow
-          --with mypy --with homeassistant==2025.4.0 --with voluptuous
-          mypy custom_components/sensoredlife/
 
   tests:
     name: Tests (Python ${{ matrix.python-version }})
@@ -101,3 +84,62 @@ jobs:
 
       - name: Compile on the support floor
         run: python -m compileall -q custom_components/
+
+  # Proves the floor declared in hacs.json is real. The other gates resolve
+  # the LATEST Home Assistant, so code could start depending on a newer API
+  # while HACS keeps offering the release to users on the declared floor.
+  # Reads the floor from hacs.json and the integration's own requirements
+  # from manifest.json, then imports every module and type-checks against
+  # that exact release.
+  #
+  # This is also the only mypy run. HA 2026.9 moved core to probatio and
+  # 2026.10 retyped schema arguments as probatio.Schema, so mypy against the
+  # latest HA rejects the voluptuous schemas older releases need (probatio
+  # does not exist before 2026.9). HA still accepts voluptuous schemas at
+  # runtime, and the tests job covers runtime on the newest HA.
+  minimum-supported-ha:
+    name: Minimum supported HA (hacs.json floor)
+    runs-on: ubuntu-latest
+    env:
+      # Must satisfy the floor's requires-python (HA 2024.12 = Python 3.12 or
+      # 3.13).
+      FLOOR_PYTHON: "3.13"
+      # HA 2024.12 and 2025.x pin a pre-release aiohasupervisor, which uv
+      # otherwise refuses.
+      UV_PRERELEASE: allow
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Pin the floor and the integration's requirements
+        run: |
+          python3 - <<'PY'
+          import json
+          floor = json.load(open("hacs.json"))["homeassistant"]
+          reqs = json.load(open("custom_components/sensoredlife/manifest.json"))["requirements"]
+          with open("floor-requirements.txt", "w") as f:
+              f.write("\n".join([f"homeassistant=={floor}", "voluptuous", *reqs]) + "\n")
+          print(f"Declared Home Assistant floor: {floor}; requirements: {reqs}")
+          PY
+
+      - name: Import every module against the floor
+        run: |
+          uv run --no-project --python "$FLOOR_PYTHON" \
+            --with-requirements floor-requirements.txt \
+            python -c "
+          import importlib, pkgutil
+          import custom_components.sensoredlife as pkg
+          names = [m.name for m in pkgutil.iter_modules(pkg.__path__)]
+          for name in names:
+              importlib.import_module(f'{pkg.__name__}.{name}')
+          print(f'{len(names)} modules import on the declared floor')
+          "
+
+      - name: Mypy (strict) against the floor
+        run: |
+          uv run --no-project --python "$FLOOR_PYTHON" \
+            --with-requirements floor-requirements.txt \
+            --with mypy \
+            mypy custom_components/sensoredlife/
