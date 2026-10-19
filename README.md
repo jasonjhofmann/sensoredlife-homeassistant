@@ -26,7 +26,7 @@ instant-update credits.
 
 You need the following:
 
-- Home Assistant 2024.12.0 or later.
+- Home Assistant 2025.3.0 or later.
 - A SensoredLife account with at least one MarCELL gateway on it.
 - The email address and password you use to sign in at sensoredlife.com. The
   integration authenticates with the website login. There's no separate API

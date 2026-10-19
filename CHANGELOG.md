@@ -1,21 +1,27 @@
 # Changelog
 
-## Unreleased
+## 0.5.8 — 2026-10-18
 
+- **Minimum Home Assistant raised to 2025.3.0 (was 2024.12.0).** The declared
+  floor had been wrong since v0.1.0: the platforms import
+  `AddConfigEntryEntitiesCallback`, which only exists from HA 2025.3, so on HA
+  2024.12 through 2025.2 none of its platforms could load. Verified by running
+  the full test suite against each release, with dependencies resolved as of
+  its release date: all 68 tests pass on HA 2025.3.0, and 15 fail on 2025.2.5.
+  Nobody on a working install loses support. `hacs.json` and the README now
+  say 2025.3.0.
+- **Oldest supported Python is now 3.13 (was 3.12)**, because HA 2025.3
+  requires it. ruff's target version and the syntax-floor CI job follow.
 - **CI: new Minimum supported HA job, now the only mypy run.** It reads the
   floor from `hacs.json` and the integration's requirements from
-  `manifest.json`, then imports every module and runs mypy against that exact
-  Home Assistant release. It replaces the lint-job mypy step, which ran
-  against the latest HA and had failed the nightly Validate run every day
-  since 2026-10-02 (HA 2026.9 moved core from voluptuous to probatio, and HA
-  2026.10 retyped schema arguments to match). Typing only: HA still accepts
-  voluptuous schemas at runtime, and the test job still runs on the newest HA.
-  No integration code changes.
-- **Known issue: the declared floor is wrong, and the new job fails on it.**
-  `hacs.json` and the README say HA 2024.12.0, but
-  `AddConfigEntryEntitiesCallback`, imported at module level since v0.1.0,
-  only exists from HA 2025.3, so the integration cannot load on 2024.12
-  through 2025.2. Not yet corrected.
+  `manifest.json`, resolves packages as of the floor's release date and
+  restates HA's own exact pins (HA 2025.3.0 pins aiohttp 3.11.13, since
+  yanked), then imports every module and runs mypy against that exact release.
+  It replaces the lint-job mypy step, which ran against the latest HA and had
+  failed the nightly Validate run every day since 2026-10-02 (HA 2026.9 moved
+  core from voluptuous to probatio, and HA 2026.10 retyped schema arguments to
+  match). Typing only: HA still accepts voluptuous schemas at runtime, and the
+  test job still runs on the newest HA. No integration code changes.
 
 ## 0.5.7 — 2026-08-27
 
