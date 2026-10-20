@@ -55,7 +55,7 @@ Each MarCELL gateway gets:
 | Temperature | `sensor` | Has `safe_minimum`, `safe_maximum`, and `in_safe_range` attributes taken from the account's alarm bounds |
 | Humidity | `sensor` | Same three attributes |
 | Power | `binary_sensor` | `plug` class. `on` means mains power, `off` means the gateway is running on its backup battery |
-| Online | `binary_sensor` | `connectivity` class. Goes `off` when the gateway hasn't reported for more than 9 hours |
+| Connectivity | `binary_sensor` | `connectivity` class. Diagnostic. Goes `off` when the gateway hasn't reported for more than 9 hours |
 | Signal strength | `sensor` | Diagnostic, disabled by default |
 | Backup battery | `sensor` | Internal cell voltage. Diagnostic |
 | Last read | `sensor` | Timestamp of the most recent cloud read. Diagnostic |
@@ -74,9 +74,10 @@ The 9-hour offline threshold sits just above the slowest normal upload cadence,
 so a healthy non-PRO gateway on schedule never trips it.
 
 A SPuck that has dropped offline or gone out of RF range reports `unavailable`
-rather than a bogus value. The cloud signals this with `999.9 °F` and `99.9 %`
-sentinels, which the integration matches exactly, so a genuine reading near
-those values still comes through.
+rather than a bogus value. The cloud signals this with sentinel values: `999.9` or `99.9`
+for temperature and `99.9` for humidity. The integration matches them exactly,
+so a reading near a sentinel still comes through, but one that rounds to
+exactly 99.9 °F or 99.9 % reports `unavailable`.
 
 **Last call-in** is the entity that tells you a probe has gone quiet. Without
 it, a silent SPuck keeps echoing whatever it last reported.
@@ -132,7 +133,7 @@ doesn't pretend to be an active viewer.
 
 So a value in Home Assistant can be several hours old. The 15-minute poll keeps
 Home Assistant in step with whatever the device last uploaded, and nothing
-more. Use the **Last read** timestamp and the **Online** sensor to judge how
+more. Use the **Last read** timestamp and the **Connectivity** sensor to judge how
 current a value is.
 
 ### Force a fresh reading
@@ -196,7 +197,7 @@ automation:
   - alias: "MarCELL gateway offline"
     triggers:
       - trigger: state
-        entity_id: binary_sensor.wine_cellar_online
+        entity_id: binary_sensor.wine_cellar_connectivity
         to: "off"
         for: "00:30:00"
     actions:
@@ -234,7 +235,7 @@ website login, so if the website rejects them, so will Home Assistant.
 ### Entities show `unavailable`
 
 Either a coordinator poll failed because the cloud was unreachable, or a SPuck
-is offline or out of RF range of its gateway. Check the gateway's **Online**
+is offline or out of RF range of its gateway. Check the gateway's **Connectivity**
 binary sensor and its **Last read** timestamp to tell the two apart.
 
 ### A reauthentication prompt appears
