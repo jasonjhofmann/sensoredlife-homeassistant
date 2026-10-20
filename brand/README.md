@@ -1,8 +1,10 @@
 # Brand assets
 
-Artwork for the [home-assistant/brands](https://github.com/home-assistant/brands)
-submission. Copy `custom_integrations/sensoredlife/` into a fork of that repo
-under the same path and open a PR.
+Archival copies of the brand artwork. The canonical assets are in
+`custom_components/sensoredlife/brand/`, which Home Assistant 2026.3 and later
+serves through its Brands Proxy, so no home-assistant/brands pull request is
+needed. That repository now closes submissions for custom integrations
+automatically.
 
 | File | Size | Notes |
 | --- | --- | --- |

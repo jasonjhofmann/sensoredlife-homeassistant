@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.5.9 — 2026-10-20
+
+- **README: the gateway's connectivity sensor is named Connectivity, not
+  Online.** It has no name of its own, so Home Assistant names it after its
+  device class, and its entity ID ends in `_connectivity`. The README called
+  it Online in four places, including an automation example whose
+  `binary_sensor.…_online` trigger matched nothing. The entity table now
+  also marks it Diagnostic.
+- **README: SPuck sentinel values stated exactly.** Temperature treats both
+  `999.9` and `99.9` as offline, so a reading that rounds to exactly 99.9 °F
+  reports `unavailable`.
+- `brand/README.md` no longer says to open a home-assistant/brands PR.
+
+HACS shows the README from the latest release, which is why this ships as
+one. No integration code changes.
+
 ## 0.5.8 — 2026-10-18
 
 - **Minimum Home Assistant raised to 2025.3.0 (was 2024.12.0).** The declared
